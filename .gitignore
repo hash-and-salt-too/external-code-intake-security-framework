@@ -1,0 +1,43 @@
+# security-audits — .gitignore
+# Goal: never commit downloaded/suspect code, secrets, or private working
+# notes to version control (especially if this is ever pushed to a fork).
+
+# ── Downloaded / suspect code under review ───────────────────────────
+# Stage code you're statically reviewing in quarantine/. Its contents are
+# never committed. NEVER build or run anything from here on your main
+# machine — use the isolated Phase 5 environment (VM / throwaway account).
+quarantine/*
+!quarantine/README.md
+
+# Other scratch spaces
+scratch/
+samples/
+tmp/
+
+# Leftover per-target folders from the old convention
+*_ORPHAN/
+
+# ── Private / sensitive working notes you don't want on a fork ────────
+private/
+*.private.md
+*.local.md
+
+# ── Secrets & credentials (defense in depth — should never live here) ─
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.keychain
+id_rsa*
+*_rsa
+*.token
+secrets.*
+
+# ── macOS / editor cruft ─────────────────────────────────────────────
+.DS_Store
+._*
+.AppleDouble
+*.swp
+*~
