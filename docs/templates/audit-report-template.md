@@ -2,6 +2,8 @@
 
 Copy this file for each audit (e.g. `reports/qlmarkdown-v1.4.2.md`) and fill it in as you go. Writing findings down forces honesty (gaps become visible) and makes re-auditing updates fast.
 
+> **Fast lane vs. this template:** For a *low-risk* item you may record just a one-line, human-attributed note instead of this full template — see [`../00-scope-and-boundaries.md`](../00-scope-and-boundaries.md). Use this full template for medium/high-risk items, or anything you'll share or publish.
+
 > **How to fill:** For each item record **Result** = ✅ pass · ⚠️ concern · 🛑 dealbreaker · ➖ N/A, plus a short **evidence/note**. An unknown you can't resolve is a ⚠️ or 🛑, never a ✅.
 
 ---
@@ -16,11 +18,14 @@ Copy this file for each audit (e.g. `reports/qlmarkdown-v1.4.2.md`) and fill it 
 | **Artifact type** (from triage) | |
 | **Install method** (source / pre-built / package mgr) | |
 | **Date of audit** | |
-| **Auditor** | |
+| **Reviewer** (you; AI may assist with evidence) | |
 | **Overall risk rating** | Low / Medium / High |
-| **DECISION** | ✅ Install · ⚠️ Install with restrictions · 🛑 Reject |
+| **DECISION** | Accept · Accept with restrictions · Reject · Hold (needs a second look) |
+| **Decision made by** (a human — not the AI) | |
 | **One-line rationale** | |
 | **Re-audit trigger** | e.g. "any new release," "if entitlements change" |
+
+> **Decision model:** **Accept** · **Accept with restrictions** (use only under limits you write down — never to wave through a risk you can't explain) · **Reject** (reviewed, not safe) · **Hold — needs a second look** (couldn't resolve something; use/sharing blocked until it is — keeps "I couldn't finish" separate from "it's bad"). Unresolved *high-impact* questions default to blocked (*fail closed*). Resolve a Hold via a safer alternative or a trustworthy community for personal work, or your organization's official channel for work-shared code — never post your organization's material publicly. The AI gathers evidence, but a **human owns the decision.** See [`../00-scope-and-boundaries.md`](../00-scope-and-boundaries.md).
 
 ---
 

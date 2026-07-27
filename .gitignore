@@ -9,6 +9,12 @@
 quarantine/*
 !quarantine/README.md
 
+# ── Private authorship-evidence: chat-session transcripts ────────────
+# Development session transcripts are kept as PRIVATE evidence, never
+# published. The folder's README is tracked; the transcripts are not.
+provenance/*
+!provenance/README.md
+
 # Other scratch spaces
 scratch/
 samples/

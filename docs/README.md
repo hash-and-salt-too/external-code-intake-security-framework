@@ -11,7 +11,7 @@ This framework applies to **anything you might download from GitHub and execute*
 - Browser extensions and editor/IDE extensions (VS Code, etc.)
 - Container images (Docker) and infrastructure code
 
-> **New to this?** Read this page top to bottom, then open [`glossary.md`](glossary.md) whenever a word is unfamiliar. Every technical term is defined there in plain language. You do not need to be a programmer to use this framework.
+> **New to this?** Read this page top to bottom, then read [`00-scope-and-boundaries.md`](00-scope-and-boundaries.md) to see what's in and out of scope. Open [`glossary.md`](glossary.md) whenever a word is unfamiliar — every technical term is defined there in plain language. You do not need to be a programmer to use this framework.
 
 ---
 
@@ -67,6 +67,9 @@ Match the depth of your audit to the **risk**. Risk goes up when the code is mor
 ## The process at a glance
 
 ```
+SCOPE   Is this in scope, and how much review does it need?
+        → 00-scope-and-boundaries.md  (external code? risk tier? decision model)
+
 STEP 0  Triage: what am I actually downloading?   → 02-artifact-triage.md
         (This decides which checks below matter most.)
 
@@ -94,6 +97,7 @@ DECIDE  Weigh findings, make a go/no-go, write it down.
 ## Document map
 
 **Read these first (foundations):**
+- [`00-scope-and-boundaries.md`](00-scope-and-boundaries.md) — **read first.** What this framework does and doesn't cover, what counts as "external code" (including AI-suggested packages), how much effort a decision deserves, and the decision model.
 - [`glossary.md`](glossary.md) — plain-language definitions of every term used here.
 - [`01-threat-model-and-principles.md`](01-threat-model-and-principles.md) — what you are defending against, and why.
 - [`02-artifact-triage.md`](02-artifact-triage.md) — **start every audit here.** Identify the type of thing you're downloading and get routed to the right checks. *(This is the answer to "does the type of code matter?" — yes, a lot.)*
