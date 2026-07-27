@@ -8,7 +8,7 @@ Two downloads can both come "from GitHub" and yet need completely different scru
 
 ## Step A — Identify your artifact type
 
-Find the row that best matches what you're about to download. If several apply (e.g. an app that also bundles scripts), use the **most powerful** one.
+Find the row that best matches what you're about to bring in. If several apply (e.g. an app that also bundles scripts), use the **most powerful** one.
 
 | # | Artifact type | Examples | Can you read what it does? | Runs with | Signature typically available? |
 |---|---------------|----------|----------------------------|-----------|-------------------------------|

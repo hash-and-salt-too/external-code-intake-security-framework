@@ -1,8 +1,8 @@
-# Security Audit Framework — Vetting Code You Download from GitHub
+# External Code Intake Security Framework
 
-A practical, beginner-friendly process for deciding **whether it is safe to download, install, and run something you found on GitHub** — *before* you run it.
+A practical, beginner-friendly process for deciding **whether externally sourced code is safe to bring into your projects and run on your machine** — *before* you execute, install, or incorporate it. (GitHub is the most common source, but the same thinking applies wherever code comes from — including a package your AI assistant suggests.)
 
-This framework applies to **anything you might download from GitHub and execute**, not just "plugins":
+It covers **any external code you might take in**, not just "plugins":
 
 - Apps and installers (`.app`, `.dmg`, `.pkg`)
 - System add-ons like Quick Look extensions (e.g. **QLMarkdown**), Spotlight importers, kernel/system extensions
@@ -10,6 +10,8 @@ This framework applies to **anything you might download from GitHub and execute*
 - Libraries you add to your own projects (npm, PyPI, RubyGems, Cargo, Go modules, Swift Package Manager, CocoaPods)
 - Browser extensions and editor/IDE extensions (VS Code, etc.)
 - Container images (Docker) and infrastructure code
+
+The *review thinking* applies to all of these; the hands-on commands currently assume **macOS** (where you run them). See [`00-scope-and-boundaries.md`](00-scope-and-boundaries.md) for the exact scope.
 
 > **New to this?** Read this page top to bottom, then read [`00-scope-and-boundaries.md`](00-scope-and-boundaries.md) to see what's in and out of scope. Open [`glossary.md`](glossary.md) whenever a word is unfamiliar — every technical term is defined there in plain language. You do not need to be a programmer to use this framework.
 
@@ -29,11 +31,11 @@ That is a **trust decision**, and trust should be *earned with evidence*, not as
 
 ## The core principles (borrowed from secure engineering)
 
-These five ideas drive every check in this framework. They come straight from the secure-coding standard this workspace follows, re-pointed from "how to write safe code" to "how to safely consume someone else's code."
+These five ideas drive every check in this framework. They come straight from established secure-coding practice, re-pointed from "how to write safe code" to "how to safely consume someone else's code."
 
-| Principle | What it means for you as a downloader |
+| Principle | What it means for you (bringing code in) |
 |-----------|----------------------------------------|
-| **Assume breach** | Act as if any download *could* be malicious. Design your test so that if it *is* bad, the damage is contained. |
+| **Assume breach** | Act as if any incoming code *could* be malicious. Design your test so that if it *is* bad, the damage is contained. |
 | **Least privilege** | Give the code the *minimum* access it needs. Test in a throwaway account or VM before trusting it on your main machine. |
 | **Defense in depth** | Never rely on a single signal (e.g. "it's popular"). Layer several independent checks. |
 | **Zero trust** | Verify every time — including on *updates*. Today's safe version can become tomorrow's compromised one. |
@@ -70,7 +72,7 @@ Match the depth of your audit to the **risk**. Risk goes up when the code is mor
 SCOPE   Is this in scope, and how much review does it need?
         → 00-scope-and-boundaries.md  (external code? risk tier? decision model)
 
-STEP 0  Triage: what am I actually downloading?   → 02-artifact-triage.md
+STEP 0  Triage: what am I actually bringing in?   → 02-artifact-triage.md
         (This decides which checks below matter most.)
 
 PHASE 1 Provenance & reputation  → phases/phase-1-provenance.md
@@ -100,7 +102,7 @@ DECIDE  Weigh findings, make a go/no-go, write it down.
 - [`00-scope-and-boundaries.md`](00-scope-and-boundaries.md) — **read first.** What this framework does and doesn't cover, what counts as "external code" (including AI-suggested packages), how much effort a decision deserves, and the decision model.
 - [`glossary.md`](glossary.md) — plain-language definitions of every term used here.
 - [`01-threat-model-and-principles.md`](01-threat-model-and-principles.md) — what you are defending against, and why.
-- [`02-artifact-triage.md`](02-artifact-triage.md) — **start every audit here.** Identify the type of thing you're downloading and get routed to the right checks. *(This is the answer to "does the type of code matter?" — yes, a lot.)*
+- [`02-artifact-triage.md`](02-artifact-triage.md) — **start every audit here.** Identify the type of thing you're bringing in and get routed to the right checks. *(This is the answer to "does the type of code matter?" — yes, a lot.)*
 - [`03-install-methods-explained.md`](03-install-methods-explained.md) — beginner explainer: "build from source" vs. "pre-built release" vs. "package manager," and why it matters for safety.
 
 **The audit itself:**
@@ -124,7 +126,7 @@ DECIDE  Weigh findings, make a go/no-go, write it down.
 
 ## What this framework is *not*
 
-- **Not a guarantee.** A clean audit lowers risk; it never proves code is safe. A determined, skilled attacker can hide things. The goal is to *raise the cost of fooling you* and to *catch the common cases*, which is the vast majority of real-world bad downloads.
+- **Not a guarantee.** A clean audit lowers risk; it never proves code is safe. A determined, skilled attacker can hide things. The goal is to *raise the cost of fooling you* and to *catch the common cases*, which is the vast majority of real-world bad intake.
 - **Not only automated.** Right now this is documentation and checklists so the whole process is *visible* to you. Once you're comfortable, helper scripts can automate the mechanical parts (hashing, signature checks, dependency scans) — just ask.
 - **Not one-and-done.** Re-run the relevant parts whenever you **update** the software. Updates are a common way that a once-trustworthy project turns malicious.
 
@@ -132,4 +134,4 @@ DECIDE  Weigh findings, make a go/no-go, write it down.
 
 ## Next step
 
-Open [`02-artifact-triage.md`](02-artifact-triage.md) and identify what you're about to download. It will point you to exactly which phases and checks apply to your case.
+Open [`02-artifact-triage.md`](02-artifact-triage.md) and identify what you're about to bring in. It will point you to exactly which phases and checks apply to your case.
