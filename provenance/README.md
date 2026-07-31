@@ -7,12 +7,36 @@ an assistant — the human set the intent and made every decision.
 
 ## What's here
 
+Six private captures. Together they document two development sessions — plus a
+fuller, later export of the first.
+
+**The paired origin story — conception + independent review:**
+
 | File | What it is |
 |------|------------|
 | `PRIVATE_security-audit-for-external-code_CREATION.json` | Native VS Code export of the **creation** session — complete raw record. |
 | `PRIVATE_security-audit-for-external-code_CREATION.md` | Readable Markdown rendering of the creation session (internal "thinking" omitted). |
 | `PRIVATE_security-audit-for-external-code_AUDIT.json` | Native VS Code export of the independent **review** session — complete raw record. |
 | `PRIVATE_security-audit-for-external-code_AUDIT.md` | Readable Markdown rendering of the review session. |
+
+These four are the **mirrored pair** that demonstrates the originating
+methodology: a CREATION pass and an independent, second-opinion AUDIT on a
+*different* model. They are kept together as the canonical origin story.
+
+**Extended capture of the CREATION session:**
+
+| File | What it is |
+|------|------------|
+| `PRIVATE_security-audit-for-external-code_CREATION_full-session.json` | Native export of the **same CREATION session**, captured later and in full — it also covers the migration to a public home, the scope hardening, and repository setup. |
+| `PRIVATE_security-audit-for-external-code_CREATION_full-session.md` | Readable Markdown rendering of the full-session export. |
+
+The full-session pair is the **same session** as the original CREATION capture,
+exported later so it carries the whole arc through migration and hardening. It is
+therefore partially duplicative of the original CREATION record and, on its own,
+tells only the CREATION *half* of the origin story. The original paired
+CREATION + AUDIT records are retained alongside it precisely because they show
+the mirrored conception-and-review methodology that the full-session capture does
+not.
 
 The two sessions:
 
