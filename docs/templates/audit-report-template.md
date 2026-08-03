@@ -33,6 +33,9 @@ Copy this file for each audit (e.g. `reports/qlmarkdown-v1.4.2.md`) and fill it 
 - Artifact type & why: 
 - Primary phases for this type: 
 - Chosen install method & trade-off accepted: 
+- Build preflight result / selected build file (if applicable):
+- Source↔binary correspondence established? If not, why not:
+- Older release considered? Exact version and later security fixes checked:
 
 ## Phase 1 — Provenance & reputation
 | Check | Result | Evidence / note |

@@ -31,6 +31,27 @@ Each has different trust trade-offs.
 **Best when:** the software is powerful/risky, you couldn't verify a pre-built binary, or you want maximum transparency.
 **Main checks:** Phase 2 (supply chain, incl. build scripts) + Phase 3 (source review).
 
+> **Reality check first — can your Mac actually build it?** Building from source
+> only helps if your toolchain can *compile the exact version you're reviewing.*
+> Your installed **Xcode** sets a ceiling on the **Swift version** and **SDK**
+> you can build against, and a project's newest release may need a newer one.
+> Before you commit to this path, run the read-only helper. It detects the
+> currently selected toolchain and reads declared requirements **without
+> building or running anything**:
+>
+> ```bash
+> scripts/check-build-feasibility.sh quarantine/<project>
+> ```
+>
+> See [`../scripts/README.md`](../scripts/README.md). Exit `0` means only **no
+> declared blocker was found** — it is not proof or permission to build. Finish
+> Phase 2 + Phase 3 and wait for the human decision. If a blocker is found,
+> keep reviewing readable source. For a pre-built release, verify the **exact
+> artifact** in Phase 4 and use risk-appropriate Phase 5; Hold or Reject if the
+> remaining uncertainty cannot be resolved. An older release needs its own
+> pinned review, including advisories and fixes made after it, and cannot prove
+> that a newer binary matches the older source.
+
 ---
 
 ### Method 2 — Pre-built release (a finished binary)
@@ -77,7 +98,10 @@ Each has different trust trade-offs.
 Is a readable, reviewable SOURCE build practical for you?
 │
 ├─ Yes, and the software is high-risk (installer, system extension, runs as admin)
-│     → Prefer BUILD FROM SOURCE (Method 1) after reviewing code + build scripts.
+│     → Check declared compatibility: scripts/check-build-feasibility.sh
+│     → Review source + build scripts. A clear preflight is not permission to build.
+│     → After the human decision, BUILD FROM SOURCE; or verify the exact PRE-BUILT
+│       artifact with Phase 4 + risk-appropriate Phase 5. Unresolved → Hold/Reject.
 │
 ├─ A pre-built release exists and is properly SIGNED + NOTARIZED, from a reputable project
 │     → PRE-BUILT (Method 2) is acceptable — verify signature, notarization, hash, entitlements.
@@ -93,7 +117,7 @@ Is a readable, reviewable SOURCE build practical for you?
 QLMarkdown (a macOS Quick Look extension, artifact **type 4**) is typically available **both ways**:
 
 - **Pre-built release** — a signed, notarized `.dmg`/app on the project's Releases page. Easiest path; verify with **Phase 4** (signature, notarization, entitlements, hash).
-- **Build from source** — the repo can be compiled with Xcode. More effort, but you can review the code and build it yourself; use **Phase 2 + Phase 3**.
+- **Build from source** — the repo can be compiled with Xcode. More effort, but you can review the code and build it yourself; use **Phase 2 + Phase 3**. First run `scripts/check-build-feasibility.sh`. If it finds a blocker, retain the source review and assess the exact pre-built artifact separately with Phase 4 rather than treating the fallback as approved.
 
 Because it's a system extension that runs automatically, either path should still be followed by **Phase 5** (runtime observation in isolation) before you trust it on your main machine. The [worked example](worked-example-qlmarkdown.md) walks through both.
 

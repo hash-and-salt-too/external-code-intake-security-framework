@@ -10,6 +10,9 @@ The complete, phase-by-phase checkbox list. Work top to bottom for any medium/hi
 - [ ] Identified the **artifact type** (script / build-from-source / pre-built binary / system extension / package library / browser ext / editor ext / container).
 - [ ] Determined **which phases** are primary for this type.
 - [ ] Chose the **install method** (build from source vs. pre-built vs. package manager) and understand its trade-offs.
+- [ ] If considering a source build: ran `scripts/check-build-feasibility.sh` against the selected build file. Treated exit `0` only as **no declared blocker found**, not proof or permission to build; execution still waits for the human decision.
+- [ ] If a declared blocker was found: did **not** force the build; retained Phase 3 for readable source; applied Phase 4 to the exact pre-built artifact and Phase 5 according to risk; recorded the missing source↔binary correspondence; used Hold/Reject if uncertainty remained unresolved.
+- [ ] If considering an older release: pinned and reviewed that exact version, checked advisories/changelog for later security fixes, and did not use older source as correspondence evidence for a newer binary.
 
 ## Phase 1 — Provenance & reputation
 - [ ] Confirmed genuine `owner/repo` (no typosquat); reached via a trustworthy link.

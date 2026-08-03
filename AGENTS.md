@@ -4,7 +4,7 @@ Orientation for any AI assistant working in this repo. Keep this file **lean and
 durable** — it loads into every session, so bloat costs focus and money. Update
 it when a *settled decision* changes.
 
-**Last reviewed:** 2026-07-28
+**Last reviewed:** 2026-08-03
 
 ## What this project is
 
@@ -13,7 +13,10 @@ sourced code is safe to bring into a project and run — before it is executed,
 installed, or incorporated.** It is documentation and checklists (no runtime
 code yet). "External code" means anything originating outside the current
 project (downloads, packages, AI-suggested dependencies, copied snippets),
-judged by **provenance** — where it came from, not who or what wrote it.
+judged by **provenance** — where it came from, not who or what wrote it. Any
+scripts here are **read-only helpers** that gather evidence (e.g. checking
+whether the local Xcode toolchain can even build a download) — they never
+install, build, or run the code under review.
 
 - Full rationale: [`docs/design-decisions.md`](docs/design-decisions.md)
 - Start here: [`docs/README.md`](docs/README.md) → [`docs/00-scope-and-boundaries.md`](docs/00-scope-and-boundaries.md)
@@ -44,6 +47,8 @@ judged by **provenance** — where it came from, not who or what wrote it.
 ## Repo map
 
 - `docs/` — the framework: scope, phases, checklists, templates, worked example.
+- `scripts/` — small, **read-only** helpers (e.g. build-feasibility check); never
+  build or run reviewed code.
 - `reports/` — one decision record per audited item (fast-lane items get a
   one-line entry).
 - `provenance/` — private authorship records (git-ignored except its README).

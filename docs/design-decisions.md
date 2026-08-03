@@ -108,3 +108,17 @@ Refine it from real use, not from endless theory.
 - Faithful records of those sessions are **retained privately by the author** as
   development history (see the `provenance/` folder); they are intentionally
   excluded from this public repository.
+
+---
+
+## Appendix — Follow-on work records
+
+Use this appendix as the index for durable records of significant work that
+extends the project's original creation. Each record should capture the reason
+for the work, the process and review used, the resulting decisions or changes,
+and relevant validation; add one link and one-sentence summary here when such a
+record is created.
+
+- [`design-decisions-Xcode.md`](design-decisions-Xcode.md) — Records the
+  Xcode/toolchain feasibility investigation, its cross-model review, and the
+  resulting conservative pre-build checks and framework updates.

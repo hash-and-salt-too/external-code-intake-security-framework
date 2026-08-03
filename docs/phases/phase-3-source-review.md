@@ -4,7 +4,11 @@
 
 You don't have to understand every line. You are **hunting for a small set of high-risk behaviors** and checking that each one you find has a legitimate reason to be there.
 
-> **Applies to:** readable source (scripts, or anything you'll build from source). For pre-built binaries you can't read, this phase is replaced by Phase 4 + Phase 5. QLMarkdown *can* be reviewed as source if you build it yourself.
+> **Applies to:** readable source, whether or not your local toolchain can build
+> it. A pre-built binary itself needs Phase 4 + Phase 5, but using that artifact
+> does not erase useful Phase 3 evidence from the corresponding pinned source.
+> If you cannot establish that the binary matches the reviewed source, record
+> that gap explicitly and do not treat source findings as proof about the binary.
 
 ---
 
