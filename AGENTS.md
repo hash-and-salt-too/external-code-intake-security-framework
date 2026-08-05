@@ -4,7 +4,7 @@ Orientation for any AI assistant working in this repo. Keep this file **lean and
 durable** — it loads into every session, so bloat costs focus and money. Update
 it when a *settled decision* changes.
 
-**Last reviewed:** 2026-08-03
+**Last reviewed:** 2026-08-04
 
 ## What this project is
 
@@ -49,6 +49,8 @@ install, build, or run the code under review.
 - `docs/` — the framework: scope, phases, checklists, templates, worked example.
 - `scripts/` — small, **read-only** helpers (e.g. build-feasibility check); never
   build or run reviewed code.
+- `tools/` — repo maintenance utilities that act only on **this repo's own
+  files** (e.g. generating printable checklists); never touch reviewed code.
 - `reports/` — one decision record per audited item (fast-lane items get a
   one-line entry).
 - `provenance/` — private authorship records (git-ignored except its README).

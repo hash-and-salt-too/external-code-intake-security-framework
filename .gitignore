@@ -28,6 +28,14 @@ private/
 *.private.md
 *.local.md
 
+# ── Generated printable artifacts (derived from the .md source) ───────
+# Printables are regenerated on demand from the Markdown that sits beside
+# them. Committing them risks publishing a stale copy that someone prints
+# and works from. Keep the Markdown as the single source of truth.
+*.pdf
+*.docx
+*.rtf
+
 # ── Secrets & credentials (defense in depth — should never live here) ─
 .env
 .env.*
