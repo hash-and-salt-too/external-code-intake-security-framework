@@ -134,18 +134,26 @@ submodules deliberately **not** initialized). HEAD verified `= b59df6acb713881a9
 | Untrusted-input handling (memory safety / sanitization) | 🛑 | **See finding #22 — the significant concern of this audit.** Additional context: `unsafeHTMLOption` defaults to **`true`** and `validateUTFOption` defaults to **`false`**, so raw document HTML is rendered and UTF-8 validation is *off* before input reaches the C parser. `SwiftSoup` is used only as a **DOM parser** (`parseBodyFragment`) — **not** as a sanitizer; no `Cleaner`/`Safelist`/`Whitelist` appears anywhere. The only HTML filtering is GFM's `tagfilter`, a **9-tag blocklist** that does not stop event-handler attributes (`<img onerror=…>`, `<svg onload=…>`). |
 | Fork diff reviewed (if applicable) | ➖ | Not a fork — `sbarex/QLMarkdown` is the original (Phase 1). |
 
-## Phase 4 — Binary / artifact ⏳ pending
+## Phase 4 — Binary / artifact ⚠️ complete with concerns
+
+**Artifact:** `QLMarkdown.zip` (20.6 MB, published 2026-04-08T16:39:00Z), downloaded over HTTPS
+from the official Releases page to `quarantine/`, expanded with `ditto -x -k` (preserves signing
+metadata; plain `unzip` can corrupt it). **Never installed, launched, or moved to `/Applications`.**
+Bundle contains `QLMarkdown.app` with `Markdown QL Extension.appex` (which embeds
+`external-launcher.xpc`), `QLMarkdown Shortcut Extension.appex`, and `Sparkle.framework`
+(with `Downloader.xpc` / `Installer.xpc`).
 
 | Check | Result | Evidence / note |
 |-------|:------:|-----------------|
-| Official HTTPS source | ⏳ | |
-| SHA-256 hash matches published | ⏳ | |
-| Signature valid & trusted key (if provided) | ⏳ | |
-| Code signing valid; Team ID matches maintainer | ⏳ | |
-| Notarized / Gatekeeper accepted / stapled | ⏳ | |
-| Entitlements minimal & sensible; sandbox status | ⏳ | |
-| Mach-O quick look (`otool`/`strings`/`nm`) clean | ⏳ | |
-| `.pkg`/`.dmg` inspected w/o installing; scripts read | ⏳ | |
+| Official HTTPS source | ✅ | `https://github.com/sbarex/QLMarkdown/releases/download/1.5.0/QLMarkdown.zip` — the project's own Releases page, no mirror or re-upload. |
+| SHA-256 hash matches published | ✅ | Published `8052e2b389644b5820e964974d87d1a3ae28992d103daedd9a522bedab6b4751`; computed **identical**. Digest is **GitHub-computed server-side** (stronger than a maintainer-pasted string), but still same-origin — it proves *un-tampered in transit*, **not** *benign release*. ℹ️ `xattr` shows `com.apple.provenance` but **no `com.apple.quarantine`**, because the fetch used `curl` rather than a browser — Gatekeeper's first-launch prompt would not fire on this copy. Irrelevant here (nothing launched), but a real-world gotcha. |
+| Signature valid & trusted key (if provided) | ➖ | No detached GPG/PGP signature is offered for releases. macOS code signing (below) is the trust mechanism. |
+| Code signing valid; Team ID matches maintainer | ⚠️ | `codesign --verify --deep --strict` → **"valid on disk"**, **"satisfies its Designated Requirement"**; nested `.appex` and `external-launcher.xpc` validated. Authority chain: **Developer ID Application: Simone Baldissini (D5VMCLD3ZK)** → Developer ID CA → Apple Root CA. `TeamIdentifier=D5VMCLD3ZK`. **Hardened Runtime enabled** (`flags=0x10000(runtime)`) on the app, the QL extension, and the XPC service. Universal binary (x86_64 + arm64). Signing timestamp **Apr 8, 2026**, consistent with the release date. Built with Xcode 26.4 / macOS 26.4 SDK. ⚠️ **Open:** the certificate identifies **"Simone Baldissini"**, while Phase 1 vetted the GitHub account **`sbarex`**. The CLI banner ("Developed by SBAREX") is suggestive but not proof. **The Team-ID-to-maintainer link is not independently confirmed** — reviewer to check the GitHub profile / sponsors / buymeacoffee page. |
+| Notarized / Gatekeeper accepted / stapled | ✅ | `spctl -a -vvv` → **accepted**, `source=Notarized Developer ID`, `origin=Developer ID Application: Simone Baldissini (D5VMCLD3ZK)`. `stapler validate` → ticket **stapled** (validates offline). Consistent with the 1.5.0 release note "Application is now codesigned and notarized!". |
+| Entitlements minimal & sensible; sandbox status | ⚠️ | **Shipped entitlements match the source declarations exactly** — only Apple's signing-time `application-identifier` / `team-identifier` are added. **No hidden entitlements.** This establishes source↔binary correspondence *on the entitlement dimension*, and confirms finding #26 against the real artifact rather than only in source. Details: **QL extension** — `app-sandbox` ✅, app-group, `files.user-selected.read-only`, **`network.client`** ⚠️, **`temporary-exception.files.absolute-path.read-only = /`** ⚠️ (whole-filesystem read), mach-lookup for `com.apple.nsurlsessiond` + settings notification. **Main app** — sandboxed, `network.client`, whole-filesystem **read** `/`, plus **`temporary-exception.files.absolute-path.read-write` = `/usr/local/bin`, `/usr/local/bin/qlmarkdown_cli`** ⚠️ (explained by the documented "create CLI symlink" menu action, but that is a `PATH` directory), and mach-lookup for `org.sbarex.QLMarkdown-spki`/`-spks` (Sparkle's installer/status services). **Shortcut extension** — notably looser: **`com.apple.security.cs.allow-jit`** ⚠️ and **`com.apple.security.cs.allow-dyld-environment-variables`** ⚠️ (both Hardened Runtime *relaxations*), plus `assets.movies/music/pictures.read-only` — Movies and Music are hard to justify for a Markdown→HTML converter. **`external-launcher.xpc` — empty entitlements dict, i.e. NOT sandboxed** ⚠️; see finding #30. Nothing requests microphone, camera, contacts, or `get-task-allow`. |
+| Mach-O quick look (`otool`/`strings`/`nm`) clean | ✅ | `otool -L` on the QL extension: system frameworks only (Quartz, WebKit, AppKit, Foundation, Swift runtime) plus `/usr/lib/libcurl.4.dylib` (used for `curl_easy_unescape` URL parsing in `inlineimage.c`) and their own `@rpath/libwrapper_highlight.dylib`. No unexpected third-party dylibs. `strings` surfaced **only** the documented endpoints (`cdn.jsdelivr.net` MathJax/Mermaid, `github.githubassets.com` emoji images) — **no `/bin/sh`, no `.ssh`, no keychain, no `osascript`, no `/etc/passwd`**. Directly corroborates Phase 3. |
+| `.pkg`/`.dmg` inspected w/o installing; scripts read | ➖ | **Not applicable — and this is a positive.** The release ships as a plain `.zip` containing `QLMarkdown.app`, with **no `.pkg`/`.dmg` installer**, therefore **no pre/postinstall scripts running with elevated rights** — the single most common macOS installer attack vector is absent by construction. |
+| *(additional)* Completeness of the audited artifact | 🛑 | **The signed, hashed artifact does not contain all the code it will run.** `find` across the whole bundle returns **zero `.js` files**; neither MathJax nor Mermaid ships inside it. Per the README they are **downloaded at first launch from `cdn.jsdelivr.net`** and cached in `~/Library/Group Containers/group.org.sbarex.qlmarkdown/js`. See finding #29. |
 
 ## Phase 5 — Runtime / sandbox ⏳ pending
 
@@ -342,6 +350,94 @@ submodules deliberately **not** initialized). HEAD verified `= b59df6acb713881a9
     reporting (if enabled on the repo) or a public issue. Distinct from the optional, purely
     cosmetic Boost/Lua documentation suggestion (finding #10).
 
+**From Phase 4:**
+
+29. 🛑 **The audited artifact is incomplete — executable code arrives after intake.** A `find`
+    across the entire signed bundle returns **zero `.js` files**: neither MathJax nor Mermaid
+    ships inside it. Both are **fetched from `cdn.jsdelivr.net` at first launch** and cached to
+    `~/Library/Group Containers/group.org.sbarex.qlmarkdown/js`, then injected into rendered
+    previews. Consequences: (a) the verified hash `8052e2b3…` and the notarization ticket cover
+    **only what shipped**, not the JavaScript that will later arrive and execute; (b) no
+    integrity pinning (no Subresource Integrity, no bundled reference copy) was observed, so the
+    fetched code's trustworthiness rests on jsDelivr and the network path; (c) this happens on a
+    **default** install, because `mathExtension` and `mermaidExtension` both default to
+    `.link(url: nil)` (finding #23). **This is a direct bypass of the intake gate** — the
+    framework's central principle is that a human approves code *before* it executes, and this
+    design fetches new code afterwards. Directly compounds finding #24 (JS very likely executes
+    in the preview host) and #22 (data present in the preview DOM).
+30. ⚠️ **`external-launcher.xpc` runs unsandboxed** — empty entitlements dict, confirmed against
+    the shipped binary. This is *by design*: the sandboxed Quick Look extension cannot call
+    LaunchServices (the `lsopen` restriction documented in the source), so it delegates to a
+    helper that can. Hardened Runtime **is** enabled on it. **Partial retraction of finding
+    #25:** its `Info.plist` declares `XPCService.ServiceType = Application`, meaning each host
+    gets a private on-demand instance rather than a globally reachable service — so
+    `shouldAcceptNewConnection` returning `true` unconditionally is **materially less serious**
+    than source review suggested. The remaining concern stands: an **unsandboxed** component
+    calls `NSWorkspace.open()` with **no scheme allow-list**, on a URL originating from an
+    untrusted document, after a user click.
+31. **Positive findings worth recording.** Hash matches exactly; signature valid and strict-deep
+    verified; **Hardened Runtime on all components**; notarized *and* stapled; universal binary;
+    **shipped entitlements match source declarations with nothing hidden**; `otool`/`strings`
+    clean and corroborating Phase 3; and **no `.pkg`/`.dmg` installer at all**, so there are no
+    pre/postinstall scripts running with elevated rights — the most common macOS installer
+    attack vector is absent by construction.
+32. ⚠️ **Team ID ↔ maintainer identity not independently confirmed.** The certificate says
+    **Simone Baldissini (D5VMCLD3ZK)**; Phase 1 vetted the GitHub account **`sbarex`**.
+    Checked directly: `NSHumanReadableCopyright` in the signed bundle reads only *"Developed by
+    SBAREX 2020 - 2026."*; `LICENSE.txt` is the stock GPL-3.0 text with **no copyright-holder
+    line**; and `grep -i baldissini` across the whole source tree returns **zero hits**. The
+    personal name therefore appears **only on the certificate**. A third-party blog showing both
+    names is *not* independent corroboration if its screenshots derive from the same Gatekeeper
+    /certificate dialog — that reasoning is circular. What *is* established: Apple verifies legal
+    identity before issuing a Developer ID, so `D5VMCLD3ZK` is a real, Apple-verified identity,
+    and it signed a bundle whose `org.sbarex.*` namespace matches the GitHub account. Limitation:
+    signing only began at 1.5.0, so there is minimal signing history to correlate.
+    **➡️ Practical control: anchor on the Team ID, not the name. Record `D5VMCLD3ZK`; treat any
+    future change of Team ID as a takeover signal and re-audit.**
+33. **Security posture of the CDN-fetched libraries (research supporting finding #29).** The two
+    fetched libraries are **not** equivalent risks.
+    - **Mermaid — active and recurring, in exactly this use case.** Direct npm advisories:
+      `CVE-2026-41159` (config sanitization → CSS injection), `CVE-2026-41150` (Gantt
+      infinite-loop DoS), `CVE-2026-41149` (`classDef` → HTML injection), `CVE-2026-41148`
+      (`classDefs` → CSS injection) — **all four in May 2026** — plus `CVE-2025-54881`
+      (sequence-diagram labels → XSS). More telling is the **downstream pattern**: *SiYuan* —
+      **zero-click NTLM hash theft + blind SSRF via Mermaid diagram rendering** (High,
+      `CVE-2026-40107`); *Open WebUI* — stored XSS in Mermaid **Markdown preview** (High);
+      *Gogs*, *JetBrains YouTrack*, *OneUptime* (High, `securityLevel:"loose"`), *Excalidraw*,
+      *GitLab*, *LobeChat*. "Render a Mermaid diagram from untrusted Markdown" is a
+      **demonstrated, repeatedly exploited attack surface** — precisely what QLMarkdown does
+      automatically on preview. Mitigation credit: QLMarkdown initialises Mermaid with
+      `securityLevel: 'strict'` (the setting OneUptime got wrong) — but the 2026 CVEs are bugs
+      in Mermaid's **own sanitization**, which strict mode does not reliably prevent.
+    - **MathJax — materially lower risk.** Only two direct advisories exist: `CVE-2023-39663`
+      (ReDoS, High) and `CVE-2018-1999024` (macro running untrusted JS, Moderate). All others
+      are downstream consumers (Jupyter, Typora, GROWI, Wikidata).
+    - **Malicious-hijack risk: LOW.** Both projects are reputable and responsive (publishing and
+      fixing CVEs promptly is a positive signal); jsDelivr is a major CDN with no known
+      compromise. But the risk class is not theoretical — **polyfill.io (2024)**, a widely used
+      CDN-hosted JS endpoint, changed ownership and served malware to 100k+ sites.
+    - **The unpinned URL cuts both ways.** `cdn.jsdelivr.net/npm/mathjax/…` and
+      `…/npm/mermaid/…` carry **no `@version`**, so they resolve to *latest at fetch time*.
+      **For:** fixes arrive automatically, which matters because QLMarkdown ships ~2 releases a
+      year and pinning to April 2026 would freeze a Mermaid carrying four known May-2026 CVEs.
+      **Against:** what will run cannot be audited in advance, and a hijack propagates
+      automatically. **Complication:** the README says the library is fetched **once and cached**
+      (manually refreshed from a menu), which would deliver *neither* benefit — frozen at
+      whatever was latest on first launch, with no automatic fixes. ⏳ **P5 must determine which
+      behaviour is real.**
+    - 🔗 **Synthesis — this is the missing link in finding #22.** #22 places arbitrary local file
+      content into the preview DOM; exfiltrating it requires script execution, and a Mermaid
+      injection bug is a documented, recurring route to exactly that, in a renderer enabled **by
+      default**. Chain: malicious `.md` → `<img src="../../../.ssh/id_rsa">` embeds the key as
+      base64 → Mermaid injection yields script execution → `com.apple.security.network.client`
+      sends it out. **Every link is a documented weakness; the chain has NOT been demonstrated
+      and is not claimed to work.** It is, however, coherent, and it is the strongest single
+      argument for the current Hold.
+34. **⏸️ Parked — second disclosure candidate: unpinned CDN JavaScript with no Subresource
+    Integrity.** Distinct from #22. A constructive upstream issue would ask for (a) a pinned
+    `@version` in the jsDelivr URLs, and/or (b) an SRI hash, and/or (c) shipping the libraries
+    in the bundle. To be considered alongside #28 once the audit concludes.
+
 ## Dealbreakers encountered (if any)
 
 - **None proven.** Finding #22 (arbitrary local-file read reachable from a merely-previewed
@@ -368,6 +464,13 @@ surfaced so far, not yet chosen)_
   enables the weak Path B inline-image handler behind finding #22. Highest-value single setting
   change identified in this review.
 - **Turn "Validate UTF" ON.** Ships off (finding #23) — cheap hardening in front of a C parser.
+- **Disable the Mermaid extension.** Highest-risk renderer by evidence (finding #33): five direct
+  CVEs, four of them in a single month, plus a documented zero-click exploit pattern in products
+  doing the same job. Disabling it removes both that renderer **and** one unpinned CDN fetch, at
+  modest functional cost. Consider disabling **Math** too if MathJax rendering isn't needed —
+  that would eliminate CDN-delivered JavaScript entirely (finding #29).
+- **Record `D5VMCLD3ZK` as the identity anchor** and treat any Team ID change as a takeover
+  signal requiring re-audit (finding #32).
 
 ## Decision rationale (the "why," in a few sentences)
 
