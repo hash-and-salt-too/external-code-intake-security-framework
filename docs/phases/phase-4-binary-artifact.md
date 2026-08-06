@@ -14,10 +14,13 @@ You can't read a compiled binary, so trust comes from **cryptographic proof + Ap
 
 - [ ] Download from the project's **official Releases page** over **HTTPS** — not a random mirror, ad, or re-upload.
 - [ ] Grab any **published checksums or signatures** the project provides alongside the release.
-- [ ] Note macOS's **quarantine** tag (set on anything downloaded from the internet), which triggers Gatekeeper on first open:
+- [ ] **Download with a browser, not `curl`.** The **quarantine** tag is what makes Gatekeeper evaluate a file on first open — and it is set by *quarantine-aware apps* (Safari, Chrome, Firefox, Mail, Messages), **not** by `curl`, `wget` or `git clone`. Fetching from the command line silently skips that check.
+- [ ] Confirm the tag is present, and note which app set it:
   ```
   xattr -l <file>        # look for com.apple.quarantine
   ```
+  The value reads `<flags>;<hex timestamp>;<app that downloaded it>;<UUID>`. A **missing** tag is not by itself evidence of tampering — it usually just means the file arrived by a route that doesn't set one (command line, USB, file share). Know which case you're in.
+- [ ] **Don't strip it.** `xattr -d com.apple.quarantine` is the reflexive "fix" when something won't open. It disables the check this phase depends on.
 
 ---
 

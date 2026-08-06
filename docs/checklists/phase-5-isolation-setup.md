@@ -104,6 +104,69 @@ python3 -m http.server 8000
       connection**, so you approve each one and see the destination.
 - [ ] Confirm it is actually running *before* you install the software under review.
 
+> **The firewall and the listener answer different questions.** The firewall tells you
+> *"did it try to reach the internet, and where?"* The local listener (3a) tells you
+> *"what data would it have sent?"* Neither substitutes for the other — run both.
+
+#### Little Snitch 6 — minimum viable setup for an audit
+
+Little Snitch is a large app with far more configuration than this task needs. These are the
+only steps that matter for Phase 5. *(UI labels shift between releases — these are described
+by function, so look for the nearest equivalent wording.)*
+
+**A. Install it — from your admin account, before creating the test account**
+
+Little Snitch installs a system-wide **network extension**, so it needs an administrator and it
+applies to *every* account including the test one. A standard user cannot install it.
+
+- [ ] Download from the vendor's official site over HTTPS.
+- [ ] **Treat it as an intake item.** It is a system extension from outside your project — in
+      fact one of the most privileged things you can install — so it gets its own intake review,
+      not a wave-through because it happens to be a security tool.
+      **This has been done:** see [`../../reports/little-snitch-v6.4.1-intake.md`](../../reports/little-snitch-v6.4.1-intake.md)
+      for the completed Phase 1 + Phase 4 record, including the entitlements it actually requests
+      and the limits of what it can observe. Re-check a newer release against the recorded
+      baseline with [`../../scripts/verify-known-artifact.sh`](../../scripts/verify-known-artifact.sh)
+      before installing it.
+- [ ] Approve the system extension when macOS prompts, and allow **Local Network** access if asked.
+- [ ] Restart if prompted, then confirm it is running before continuing.
+
+**B. Configure — five settings, then stop**
+
+- [ ] **Create a dedicated profile** (e.g. `Audit`) rather than editing your everyday rules.
+      Everything below applies inside that profile, so your normal setup is untouched and you
+      can switch back in one click when you are done.
+- [ ] **Alert Mode on.** You want to be asked about every new connection and shown the
+      destination. Silent modes decide for you, which is the opposite of what an audit needs.
+- [ ] **Disable the predefined / built-in rule groups** inside the Audit profile. Little Snitch
+      ships with permissive groups that silently allow Apple and common services — leave them on
+      and you will never be shown the connections you are trying to observe. **This is the step
+      people miss, and it quietly invalidates the test.**
+- [ ] **Turn off Automatic Profile Switching**, so a network change cannot swap your rules
+      mid-test without you noticing.
+- [ ] **Turn off Research Assistant.** It performs its own outbound lookups, which both pollutes
+      your observations and sends connection metadata off the machine.
+
+**C. While testing**
+
+- [ ] Keep **Network Monitor** open. It records **denied** attempts as well as allowed ones —
+      a blocked connection attempt is exactly the evidence you want, and it is still a finding.
+- [ ] Answer every prompt with **Deny**, scoped to **once / this connection only**. Do not create
+      permanent rules during an audit; you are gathering evidence, not configuring a workstation.
+- [ ] **Expect confusing process attribution.** Quick Look extensions execute inside Apple's own
+      host processes, so Little Snitch may name `QuickLookUIService` or similar rather than the
+      app under review. Record the exact process name it reports — and lean on the local
+      listener (3a), which does not have this problem.
+- [ ] **Loopback is normally not filtered**, which is what you want: your `127.0.0.1:8000`
+      listener keeps working as the exfiltration oracle even while real egress is denied.
+
+**D. Evidence and cleanup**
+
+- [ ] Export or screenshot the Network Monitor connection list before tearing down — that is your
+      runtime evidence for the report.
+- [ ] Switch back to your normal profile afterwards, and delete the Audit profile if you want a
+      clean state.
+
 ### 3c. Unified log stream
 
 Many apps log more than they realise. Filter to the vendor's subsystem:

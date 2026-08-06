@@ -79,3 +79,52 @@ scripts/tests/check-build-feasibility-tests.sh
 
 The test suite uses temporary fixtures and mocked tool-version output. It does
 not build or execute external code.
+
+---
+
+## `verify-known-artifact.sh` — has an approved artifact drifted?
+
+**The problem it solves.** Approval applies to the **exact version you reviewed**
+— but most macOS apps update themselves, so the thing you audited can quietly
+replace itself with something you never saw. Re-running a full audit on every
+point release does not scale, and pretending otherwise is how a framework turns
+into the reason work stalls. The expensive part of an audit is *establishing what
+normal looks like*; once that is recorded, checking a new version against it
+takes seconds. This script does that check.
+
+It compares the invariants that actually matter for trust: **Team ID**, **signing
+authority**, **notarization**, **Gatekeeper verdict**, **code-directory flags**,
+**entitlements**, the **component list**, and any **non-Apple linked libraries**.
+
+### Usage
+
+```bash
+# 1. At audit time, record a baseline and keep it with the report
+scripts/verify-known-artifact.sh --record "/Volumes/SomeApp/Some.app" > baseline.txt
+
+# 2. When a new version appears, mount it read-only YOURSELF, then compare
+hdiutil attach -readonly -nobrowse -noautoopen NewVersion.dmg
+scripts/verify-known-artifact.sh --baseline baseline.txt "/Volumes/SomeApp/Some.app"
+hdiutil detach /Volumes/SomeApp
+```
+
+### What it tells you
+
+| Exit | Meaning | Next step |
+|:----:|---------|-----------|
+| `0` | **No drift** — every recorded invariant still holds | Read the release notes and record a human decision. A clean result is *not* proof the update is safe and *not* permission to install. |
+| `1` | **Drift found** | If the **trust anchor or privilege** changed (Team ID, authority, notarization, a new entitlement, a new non-Apple library), do not install — run a full re-audit. If only **composition** changed (components added/removed), confirm the release notes explain it. |
+| `2` | **Inconclusive** — bad arguments, missing baseline, or no signed Mach-O components found | Fix the input. Point it at an `.app`, not a disk image or archive. |
+
+### Why it's safe to run
+
+It only ever *reads*: `codesign`, `spctl`, `stapler`, `otool` and `file` are
+inspection tools. The script **does not mount disk images, install, launch or
+execute anything** — you mount read-only yourself, so the one action with any
+attack surface stays an explicit human step. It writes nothing except the
+baseline you redirect to a file.
+
+> **This is a Tier 1 check, not an audit.** It answers *"did the trust anchor or
+> the privilege change?"* — not *"is this version safe?"* Nothing here replaces
+> reading the release notes, and a **human still records every decision.**
+> Worked example: [`../reports/little-snitch-v6.4.1-intake.md`](../reports/little-snitch-v6.4.1-intake.md).

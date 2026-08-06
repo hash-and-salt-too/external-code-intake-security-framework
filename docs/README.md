@@ -117,18 +117,28 @@ DECIDE  Weigh findings, make a go/no-go, write it down.
 - [`checklists/quick-triage.md`](checklists/quick-triage.md) — the fast go/no-go.
 - [`checklists/full-audit.md`](checklists/full-audit.md) — the complete checkbox list.
 - [`checklists/red-flags.md`](checklists/red-flags.md) — a catalog of dealbreakers and warning signs.
+- [`checklists/phase-5-isolation-setup.md`](checklists/phase-5-isolation-setup.md) — how to actually build the isolated environment Phase 5 assumes (test account, outbound firewall, local listener).
 - [`templates/audit-report-template.md`](templates/audit-report-template.md) — fill this in to record your decision.
 
-**Worked example:**
+**Helper scripts** (all read-only — they gather evidence, they never build or run reviewed code):
+- [`../scripts/README.md`](../scripts/README.md) — `check-build-feasibility.sh` (can your toolchain even build this?) and `verify-known-artifact.sh` (has an already-audited artifact drifted since you approved it?).
+- [`../tools/README.md`](../tools/README.md) — repo maintenance utilities that touch only this repo's own files.
+
+**Worked examples & records:**
 - [`worked-example-qlmarkdown.md`](worked-example-qlmarkdown.md) — the framework applied to QLMarkdown, ready for you to run when you choose.
+- [`../reports/README.md`](../reports/README.md) — completed intake records, one per target and version.
+
+**Design records (why the framework is the way it is):**
+- [`design-decisions.md`](design-decisions.md) — the reasoning behind the scope, the decision model and the two-speed design.
+- [`design-decisions-Xcode.md`](design-decisions-Xcode.md) — the dated toolchain record that prompted the build-feasibility helper.
 
 ---
 
 ## What this framework is *not*
 
 - **Not a guarantee.** A clean audit lowers risk; it never proves code is safe. A determined, skilled attacker can hide things. The goal is to *raise the cost of fooling you* and to *catch the common cases*, which is the vast majority of real-world bad intake.
-- **Not only automated.** Right now this is documentation and checklists so the whole process is *visible* to you. Once you're comfortable, helper scripts can automate the mechanical parts (hashing, signature checks, dependency scans) — just ask.
-- **Not one-and-done.** Re-run the relevant parts whenever you **update** the software. Updates are a common way that a once-trustworthy project turns malicious.
+- **Not mostly automated.** This is deliberately documentation and checklists, so the whole process stays *visible* to you. A few read-only helpers exist in [`../scripts/`](../scripts/README.md) for the mechanical parts, but they only gather evidence — they never decide, and they never run the code under review.
+- **Not one-and-done.** Re-run the relevant parts whenever you **update** the software. Updates are a common way that a once-trustworthy project turns malicious. For an artifact you have already audited, [`verify-known-artifact.sh`](../scripts/README.md) turns most of that re-check into a few seconds.
 
 ---
 
