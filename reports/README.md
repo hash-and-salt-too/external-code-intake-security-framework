@@ -18,6 +18,7 @@ One report per audited item lives here — the concrete output of running the fr
 
 | Date | Target | Version | Decision | Report |
 |------|--------|---------|----------|--------|
+| 2026-08-06 | Micro Snitch | 1.6.1 | 🟡 Accept with restrictions *(contingent — Phase 5 verification pending)* | [micro-snitch-v1.6.1-intake.md](micro-snitch-v1.6.1-intake.md) |
 | 2026-08-05 | Little Snitch | 6.4.1 | 🟢 Accept | [little-snitch-v6.4.1-intake.md](little-snitch-v6.4.1-intake.md) |
 | 2026-07-29 | QLMarkdown | 1.5.0 | 🟡 Hold — needs a second look *(interim, pending Phase 5)* | [qlmarkdown-v1.5.0-intake.md](qlmarkdown-v1.5.0-intake.md) |
 
