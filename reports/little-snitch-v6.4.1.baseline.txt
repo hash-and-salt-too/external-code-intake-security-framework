@@ -1,0 +1,76 @@
+# ECISF known-artifact baseline (schema 1)
+# artifact: Little Snitch.app
+# recorded: 2026-08-06
+# This records what was true at audit time. It is evidence, not permission.
+authority	Contents/Components/Little Snitch Agent.app/Contents/MacOS/Little Snitch Agent|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
+authority	Contents/Components/Little Snitch Network Monitor.app/Contents/MacOS/Little Snitch Network Monitor|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
+authority	Contents/Components/Little Snitch Software Update.app/Contents/MacOS/Little Snitch Software Update|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
+authority	Contents/Components/littlesnitch|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
+authority	Contents/Library/SystemExtensions/at.obdev.littlesnitch.endpointsecurity.systemextension/Contents/MacOS/at.obdev.littlesnitch.endpointsecurity|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
+authority	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.codesignaturechecker|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
+authority	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.daemon|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
+authority	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/XPCServices/at.obdev.littlesnitch.networking.xpc/Contents/MacOS/at.obdev.littlesnitch.networking|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
+authority	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
+authority	Contents/MacOS/Little Snitch|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
+bundle-identifier	at.obdev.littlesnitch
+cdflags	Contents/Components/Little Snitch Agent.app/Contents/MacOS/Little Snitch Agent|0x12b00
+cdflags	Contents/Components/Little Snitch Network Monitor.app/Contents/MacOS/Little Snitch Network Monitor|0x12b00
+cdflags	Contents/Components/Little Snitch Software Update.app/Contents/MacOS/Little Snitch Software Update|0x12b00
+cdflags	Contents/Components/littlesnitch|0x12b00
+cdflags	Contents/Library/SystemExtensions/at.obdev.littlesnitch.endpointsecurity.systemextension/Contents/MacOS/at.obdev.littlesnitch.endpointsecurity|0x12b00
+cdflags	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.codesignaturechecker|0x12b00
+cdflags	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.daemon|0x12b00
+cdflags	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/XPCServices/at.obdev.littlesnitch.networking.xpc/Contents/MacOS/at.obdev.littlesnitch.networking|0x12b00
+cdflags	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension|0x12b00
+cdflags	Contents/MacOS/Little Snitch|0x12b00
+component	Contents/Components/Little Snitch Agent.app/Contents/MacOS/Little Snitch Agent
+component	Contents/Components/Little Snitch Network Monitor.app/Contents/MacOS/Little Snitch Network Monitor
+component	Contents/Components/Little Snitch Software Update.app/Contents/MacOS/Little Snitch Software Update
+component	Contents/Components/littlesnitch
+component	Contents/Library/SystemExtensions/at.obdev.littlesnitch.endpointsecurity.systemextension/Contents/MacOS/at.obdev.littlesnitch.endpointsecurity
+component	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.codesignaturechecker
+component	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.daemon
+component	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/XPCServices/at.obdev.littlesnitch.networking.xpc/Contents/MacOS/at.obdev.littlesnitch.networking
+component	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension
+component	Contents/MacOS/Little Snitch
+entitlement	Contents/Components/Little Snitch Agent.app/Contents/MacOS/Little Snitch Agent|"com.apple.security.personal-information.location" => 1
+entitlement	Contents/Components/Little Snitch Network Monitor.app/Contents/MacOS/Little Snitch Network Monitor|"com.apple.security.automation.apple-events" => 1
+entitlement	Contents/Components/Little Snitch Software Update.app/Contents/MacOS/Little Snitch Software Update|<stdin>: Cannot parse a NULL or zero-length data
+entitlement	Contents/Components/littlesnitch|<stdin>: Cannot parse a NULL or zero-length data
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.endpointsecurity.systemextension/Contents/MacOS/at.obdev.littlesnitch.endpointsecurity|"com.apple.application-identifier" => "MLZF7K7B5R.at.obdev.littlesnitch.endpointsecurity"
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.endpointsecurity.systemextension/Contents/MacOS/at.obdev.littlesnitch.endpointsecurity|"com.apple.developer.endpoint-security.client" => 1
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.endpointsecurity.systemextension/Contents/MacOS/at.obdev.littlesnitch.endpointsecurity|"com.apple.developer.team-identifier" => "MLZF7K7B5R"
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.endpointsecurity.systemextension/Contents/MacOS/at.obdev.littlesnitch.endpointsecurity|"com.apple.security.application-groups" => [
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.endpointsecurity.systemextension/Contents/MacOS/at.obdev.littlesnitch.endpointsecurity|"MLZF7K7B5R.at.obdev.littlesnitch"
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.codesignaturechecker|<stdin>: Cannot parse a NULL or zero-length data
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.daemon|<stdin>: Cannot parse a NULL or zero-length data
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/XPCServices/at.obdev.littlesnitch.networking.xpc/Contents/MacOS/at.obdev.littlesnitch.networking|<stdin>: Cannot parse a NULL or zero-length data
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension|"com.apple.application-identifier" => "MLZF7K7B5R.at.obdev.littlesnitch.networkextension"
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension|"com.apple.developer.networking.networkextension" => [
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension|"com.apple.developer.team-identifier" => "MLZF7K7B5R"
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension|"com.apple.security.app-sandbox" => 0
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension|"com.apple.security.application-groups" => [
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension|"content-filter-provider-systemextension"
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension|"dns-proxy-systemextension"
+entitlement	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension|"MLZF7K7B5R.at.obdev.littlesnitch"
+entitlement	Contents/MacOS/Little Snitch|"com.apple.application-identifier" => "MLZF7K7B5R.at.obdev.littlesnitch"
+entitlement	Contents/MacOS/Little Snitch|"com.apple.developer.networking.networkextension" => [
+entitlement	Contents/MacOS/Little Snitch|"com.apple.developer.system-extension.install" => 1
+entitlement	Contents/MacOS/Little Snitch|"com.apple.developer.team-identifier" => "MLZF7K7B5R"
+entitlement	Contents/MacOS/Little Snitch|"com.apple.security.application-groups" => [
+entitlement	Contents/MacOS/Little Snitch|"com.apple.security.automation.apple-events" => 1
+entitlement	Contents/MacOS/Little Snitch|"content-filter-provider-systemextension"
+entitlement	Contents/MacOS/Little Snitch|"dns-proxy-systemextension"
+entitlement	Contents/MacOS/Little Snitch|"MLZF7K7B5R.at.obdev.littlesnitch"
+gatekeeper	accepted
+notarization	stapled
+teamid	Contents/Components/Little Snitch Agent.app/Contents/MacOS/Little Snitch Agent|MLZF7K7B5R
+teamid	Contents/Components/Little Snitch Network Monitor.app/Contents/MacOS/Little Snitch Network Monitor|MLZF7K7B5R
+teamid	Contents/Components/Little Snitch Software Update.app/Contents/MacOS/Little Snitch Software Update|MLZF7K7B5R
+teamid	Contents/Components/littlesnitch|MLZF7K7B5R
+teamid	Contents/Library/SystemExtensions/at.obdev.littlesnitch.endpointsecurity.systemextension/Contents/MacOS/at.obdev.littlesnitch.endpointsecurity|MLZF7K7B5R
+teamid	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.codesignaturechecker|MLZF7K7B5R
+teamid	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.daemon|MLZF7K7B5R
+teamid	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/Library/LaunchServices/at.obdev.littlesnitch.daemon.bundle/Contents/XPCServices/at.obdev.littlesnitch.networking.xpc/Contents/MacOS/at.obdev.littlesnitch.networking|MLZF7K7B5R
+teamid	Contents/Library/SystemExtensions/at.obdev.littlesnitch.networkextension.systemextension/Contents/MacOS/at.obdev.littlesnitch.networkextension|MLZF7K7B5R
+teamid	Contents/MacOS/Little Snitch|MLZF7K7B5R

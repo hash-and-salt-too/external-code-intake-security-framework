@@ -23,7 +23,7 @@
 | **DECISION** | 🟢 **ACCEPT** |
 | **Decision made by** (a human — not the AI) | **Repo maintainer (human), 2026-08-05.** AI gathered and explained evidence only; the AI made no accept/reject determination. |
 | **One-line rationale** | Authenticity, integrity and signing identity are cryptographically proven; the shipped binaries claim *narrower* privilege than Apple authorized; and the vendor is a 20-year, legally accountable entity with mature vulnerability-disclosure practice. |
-| **Re-audit trigger** | **Any new version** (the app self-updates); any release claiming `packet-tunnel-provider` or `app-proxy-provider`; any change of Team ID from `MLZF7K7B5R`. Re-audit runs via [`../scripts/verify-known-artifact.sh`](../scripts/verify-known-artifact.sh) against the baseline recorded below. |
+| **Re-audit trigger** | **Any new version** (the app self-updates); any release claiming `packet-tunnel-provider` or `app-proxy-provider`; any change of Team ID from `MLZF7K7B5R`. Re-audit runs via [`../scripts/verify-known-artifact.sh`](../scripts/verify-known-artifact.sh) against [`little-snitch-v6.4.1.baseline.txt`](little-snitch-v6.4.1.baseline.txt). |
 
 > **Purpose of intake:** adopted as **monitoring tooling** for the Phase 5 runtime review of
 > QLMarkdown ([`qlmarkdown-v1.5.0-intake.md`](qlmarkdown-v1.5.0-intake.md)), as anticipated by
@@ -269,21 +269,32 @@ does not over-claim:
 
 ## Appendix A — recorded baseline
 
-The machine-checkable invariants below are what
-[`../scripts/verify-known-artifact.sh`](../scripts/verify-known-artifact.sh) compares a future
-version against. Regenerate with `--record` after mounting a new release read-only.
+The machine-readable baseline is committed alongside this report as
+[`little-snitch-v6.4.1.baseline.txt`](little-snitch-v6.4.1.baseline.txt) — **72 pinned facts
+across 10 components**, recorded from the audited disk-image copy. Compare a future release
+against it with [`../scripts/verify-known-artifact.sh`](../scripts/verify-known-artifact.sh).
 
 | Invariant | Value at 6.4.1 |
 |-----------|----------------|
-| Team ID (all components) | `MLZF7K7B5R` |
+| Team ID (all components) | `MLZF7K7B5R` — uniform across all 10 |
 | Signing authority (leaf) | `Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)` |
 | Mach-O component count | 10 |
-| CodeDirectory flags (all) | `0x12b00` (hard, kill, restrict, library-validation, runtime) |
+| CodeDirectory flags (all) | `0x12b00` (hard, kill, restrict, library-validation, runtime) — uniform across all 10 |
 | App notarization | stapled; Gatekeeper `accepted` |
 | Non-Apple linked libraries | none |
+| Entitlement facts pinned | 29 |
 | NetworkExtension entitlements claimed | `content-filter-provider-systemextension`, `dns-proxy-systemextension` |
 | Endpoint Security entitlement | `com.apple.developer.endpoint-security.client` (ES extension only) |
 | Sandbox | `app-sandbox = 0` on the network extension only |
+
+### Install-time verification ✅ 2026-08-06
+
+After installation, `/Applications/Little Snitch.app` was compared against the baseline recorded
+from the disk image: **no drift — all 72 invariants held, exit 0.** This confirms the copy the
+app's own installer placed in `/Applications` (owned `root:wheel`) is identical, in every audited
+property, to the copy that was actually reviewed. It also closes the last gap in the Phase 4
+chain: Gatekeeper's first-launch check on the notarized, stapled app was allowed to run normally
+rather than being bypassed.
 
 ## Appendix B — commands run (all read-only)
 
