@@ -194,10 +194,21 @@ See Step 0 for the full reasoning. In summary:
 ## Operating notes (how this is run, not a condition of acceptance)
 
 - **Automatic update *check*: ON.** Cheap, and it delivers the signal — you learn about a
-  security release within a day.
-- **Automatic update *install*: OFF.** Preserves deliberate soak time. Rationale is
-  evidence-based rather than generic caution: across the 6.x line the vendor shipped six
-  regressions serious enough to need hotfixes — rules wiped on upgrade (6.0.4), DNS left
+  security release within a day. **"Show pre-release versions": OFF**, which is consistent with
+  the soak-time reasoning below; nightly builds are the opposite of age-gating.
+- **Automatic update *install*: not applicable — the app has no auto-install option.** Updates
+  are notification-only and require explicit authentication (Touch ID / password), and macOS
+  additionally gates any replacement of the system extensions. *Verified against the shipping UI
+  on 2026-08-07: the Update pane offers only "Automatically check for updates" and "Show
+  pre-release versions."* Corroborated three further ways — the 6.4 release notes add Touch
+  ID / Face ID authentication to the update process; the 6.2.2 note describes the updater's
+  failure mode as *lost notification*, not lost installation; and the privacy policy records
+  "which available updates you no longer wish to be displayed," i.e. dismissible notices.
+  **Evidence class: converging inference, not observation** — no update has yet been seen.
+  Record the observed behaviour in the update log when the first one arrives.
+- **Soak time is therefore enforced by hand, not by a setting — and it is worth enforcing.**
+  Rationale is evidence-based rather than generic caution: across the 6.x line the vendor shipped
+  six regressions serious enough to need hotfixes — rules wiped on upgrade (6.0.4), DNS left
   unencrypted despite encryption being enabled (6.1.1), **the auto-updater itself breaking**
   (6.2.2), network-filter crash causing loss of connectivity (6.3.1), a crash disconnecting all
   active connections (6.3.2) and valid licences rejected (6.4.1). **For this product the
@@ -206,11 +217,19 @@ See Step 0 for the full reasoning. In summary:
   six months, so no soak period catches everything.
 - **Frozen for the duration of the QLMarkdown Phase 5 review.** Methodological, not security:
   changing the measuring instrument mid-experiment invalidates the measurement.
-- **On each new version, run the tiered check** rather than a full re-audit:
+- **On each new version, run the tiered check** rather than a full re-audit. **Treat the update
+  notice as the Tier 0 trigger, not a button to click through** — letting the in-app updater
+  install directly skips the baseline check entirely.
   - *Tier 0* — read the release notes. Does this touch privilege or the trust anchor?
-  - *Tier 1* — run [`../scripts/verify-known-artifact.sh`](../scripts/verify-known-artifact.sh)
-    against the recorded baseline. Seconds, and it is the check that actually matters.
+  - *Tier 1* — download the new DMG yourself from the vendor into `quarantine/`, mount it
+    read-only, and run
+    [`../scripts/verify-known-artifact.sh`](../scripts/verify-known-artifact.sh) against
+    [`little-snitch-v6.4.1.baseline.txt`](little-snitch-v6.4.1.baseline.txt). Seconds, and it is
+    the check that actually matters. Install only after it comes back clean.
   - *Tier 2* — full re-audit only if Tier 1 reports drift, or on a major version bump.
+  - *Acceptable fallback* for an obviously routine point release: let the updater install, then
+    immediately run Tier 1 against `/Applications/Little Snitch.app`. This still catches drift,
+    but after the extensions have loaded rather than before — strictly weaker.
 - **Update-policy reasoning is per-artifact, on two axes** — *blast radius if the update is bad
   or malicious* and *exposure if you stay behind*. Little Snitch is high-blast-radius but
   **low-exposure-if-behind** (not an inbound service; no CVEs in 5.x/6.x; the entire historical
