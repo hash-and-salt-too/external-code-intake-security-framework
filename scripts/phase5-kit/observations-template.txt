@@ -1,0 +1,145 @@
+==============================================================================
+  PHASE 5 OBSERVATION SHEET - QLMarkdown 1.5.0
+==============================================================================
+
+Fill this in as you go. Type directly under each question.
+Do not worry about neatness. "Don't know" and "didn't see" are valid answers
+and are more useful than a guess.
+
+Saved automatically where the assistant can read it, so you never need to
+retype any of this.
+
+------------------------------------------------------------------------------
+STEP 3b - FIRST LAUNCH
+------------------------------------------------------------------------------
+
+Did any Little Snitch alert appear?   (yes / no)
+   >
+If yes, what address(es)?
+   >
+
+Did WINDOW A (the listener) show anything during launch?   (yes / no)
+   >
+
+Did it ask for an administrator password?   (yes / no)
+   >
+If yes, exactly what asked, and for what?
+   >
+
+Updates: did it ASK permission to check, start checking on its own,
+or do nothing visible?
+   >
+
+Anything else you noticed?
+   >
+
+------------------------------------------------------------------------------
+STEP 3c - WAS JAVASCRIPT DOWNLOADED AT FIRST LAUNCH?   (question Q3)
+------------------------------------------------------------------------------
+
+Did the js folder exist?   (yes / no / folder missing entirely)
+   >
+
+Paste what the ls command printed:
+   >
+
+
+
+
+------------------------------------------------------------------------------
+STEP 3d - IS THE EXTENSION ACTUALLY WORKING?
+------------------------------------------------------------------------------
+
+Previewing 00-control.md gave:   (FORMATTED / RAW TEXT)
+   >
+
+pluginkit output, if you ran it:
+   >
+
+------------------------------------------------------------------------------
+STEP 3e - SETTINGS AS SHIPPED   (tests finding #23)
+------------------------------------------------------------------------------
+
+Write ON or OFF as you actually see them. Do not change anything.
+
+   Inline HTML (unsafe)      predicted ON    actual:
+   Inline local images       predicted ON    actual:
+   Validate UTF              predicted OFF   actual:
+   Math                      predicted ON    actual:
+   Mermaid                   predicted ON    actual:
+   Table                     predicted ON    actual:
+
+Anything else in the settings window that surprised you?
+   >
+
+------------------------------------------------------------------------------
+STEP 4 - THE PROBES
+------------------------------------------------------------------------------
+
+For each: what the preview LOOKED like, and whether WINDOW A showed a request.
+
+00-control.md        (baseline - should be boring)
+   looked like:
+   listener:
+
+01-remote-image.md   (does previewing reach the network?)
+   looked like:
+   listener:   did /remote-image-probe.png arrive?  (yes/no)
+               did /remote-html-img.png arrive?     (yes/no)
+
+02-traversal-benign.md   (can it read /etc/hosts?)
+   looked like:
+   did you see a broken image, junk text, or nothing unusual?
+
+03-traversal-canary.md   <<< THE IMPORTANT ONE
+   looked like:
+   The file asks for the SAME file twice - once as raw HTML, once as
+   Markdown. Prediction: the Markdown one is refused, the HTML one is not.
+   Did the two images behave DIFFERENTLY from each other?  (yes/no/unsure)
+   Describe what you saw:
+
+04-script-probe.md   <<< DECIDES THE REVIEW   (question Q2)
+   listener:   did /script-tag-executed arrive?          (yes/no)
+               did /js-executed-img-onerror arrive?      (yes/no)
+               did /js-executed-svg-onload arrive?       (yes/no)
+   looked like:
+
+05-mermaid.md
+   Did an actual DIAGRAM draw?   (yes / no / error text)
+   listener:
+
+06-math.md
+   Did it render as proper typeset mathematics?   (yes / no)
+   listener:
+
+07-malformed.md
+   Did anything crash, hang, or misbehave?
+   looked like:
+
+08-large.md
+   Did it hang or spin the fan? Roughly how long to render?
+   looked like:
+
+------------------------------------------------------------------------------
+STEP 3c REPEAT - CHECK THE JS FOLDER AGAIN, AFTER THE PROBES
+------------------------------------------------------------------------------
+
+Run the same command again now that Math and Mermaid have been previewed:
+
+    ls -la ~/Library/Group\ Containers/group.org.sbarex.qlmarkdown/js/
+
+Did anything appear that was not there at first launch?
+   >
+
+------------------------------------------------------------------------------
+ANYTHING ELSE
+------------------------------------------------------------------------------
+
+Anything odd, confusing, surprising, or annoying - including problems with
+these instructions:
+   >
+
+
+
+
+==============================================================================

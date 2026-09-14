@@ -167,17 +167,37 @@ applies to *every* account including the test one. A standard user cannot instal
 - [ ] Switch back to your normal profile afterwards, and delete the Audit profile if you want a
       clean state.
 
-### 3c. Unified log stream
+### 3c. Unified log — note the admin restriction
 
-Many apps log more than they realise. Filter to the vendor's subsystem:
+Many apps log more than they realise. **But `log stream` requires administrator rights**, which a
+standard test account deliberately does not have:
 
-```bash
-log stream --predicate 'subsystem CONTAINS "<vendor-string>"' --info --debug
+```
+log: must be admin to run 'stream' command
 ```
 
-- [ ] Running in its own window. *(For QLMarkdown use `sbarex` — its inline-image extension logs
-      an explicit `"… is not an image!"` rejection message, which is a direct oracle for whether
-      a MIME guard accepted or rejected your probe file.)*
+That is the isolation working as designed — do **not** "fix" it by granting the test account
+admin rights. Use one or both of these instead:
+
+- [ ] **Capture from your admin session.** The unified log is system-wide, so a stream started in
+      the admin session records events produced by processes in the test account too. Start it
+      *before* switching over, and write it somewhere both accounts can reach:
+      ```bash
+      nohup log stream \
+        --predicate 'subsystem CONTAINS[c] "<vendor-string>"' --info --debug \
+        > /Users/Shared/<kit>/out/logstream.txt 2>&1 &
+      ```
+      Stop it afterwards with `pkill -f 'log stream --predicate'`.
+- [ ] **On-demand reads inside the test account.** `log show` is generally permitted where
+      `log stream` is not, so query *after* each probe instead of watching continuously:
+      ```bash
+      log show --last 2m --predicate 'subsystem CONTAINS "<vendor-string>"' --info --debug
+      ```
+      Verify it works at all first: `log show --last 1m --info | head -3`.
+
+*(For QLMarkdown the vendor string is `sbarex` — its inline-image extension logs an explicit
+`"… is not an image!"` rejection message, which is a direct oracle for whether a MIME guard
+accepted or rejected your probe file.)*
 
 ### 3d. File activity (optional — needs admin)
 
@@ -189,6 +209,35 @@ log stream --predicate 'subsystem CONTAINS "<vendor-string>"' --info --debug
       sudo fs_usage -w -f filesys | grep -i <process-name>
       ```
 - [ ] …**or** skip it and rely on the canary + log stream. Record which you chose.
+
+### 3e. Calibrate your instruments — do not skip
+
+**A silent instrument produces a false "clean" result.** Prove each one works *before* you
+install anything, or you will not know whether "no traffic" means no traffic or no monitoring.
+
+- [ ] **Confirm the audit profile is the *active* profile**, not merely created.
+- [ ] **Firewall** — from the test account: `curl -I https://example.com`
+      → expect an alert. **No alert means the firewall will not help you**; proceed on the
+      listener alone and record that limitation.
+- [ ] **Listener** — `curl http://127.0.0.1:8000/calibration`
+      → expect a request line in the listener window.
+- [ ] **Log stream** — running, and quiet, before you begin.
+
+> **Known trap: undisable-able system rule groups.** Some firewall rule groups covering core
+> macOS processes cannot be turned off. This matters more than it sounds, because a sandboxed
+> extension often issues its network requests **through a system daemon** (e.g. an entitlement
+> for `com.apple.nsurlsessiond`). Its traffic can then be *both* silently allowed by that
+> undisable-able group *and* attributed to a system process — so the firewall shows you nothing
+> and you wrongly conclude there was no network activity.
+>
+> **Mitigation: change the instrument, not the setting.** Prefer evidence the artifact cannot
+> route around:
+> - **Filesystem evidence** for "did it download something?" — check the app's cache/container
+>   directory and compare timestamps (e.g.
+>   `ls -la ~/Library/Group\ Containers/<group-id>/`). More reliable than any firewall log.
+> - **The local listener** for "would data have left?" — loopback is normally unfiltered, so it
+>   works regardless of how the connection is attributed.
+> - **The vendor's own unified-log subsystem** for what the code thinks it is doing.
 
 ---
 
