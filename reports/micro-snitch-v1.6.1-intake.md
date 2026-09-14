@@ -261,23 +261,67 @@ first launch.** Reasoning:
   extension, everything this app touches is **per-user state** — its login item and its log in
   `~/Library/Logs/`. A second account isolates precisely those, while preserving real hardware.
 
-Procedure:
+### Why the install location is the whole point of this test
 
-1. Create a throwaway local user account.
-2. Copy `Micro Snitch.app` into **that account's own folder, not `/Applications`.** The
-   updater's admin-escalation path exists to replace the app where the user cannot write; from a
-   user-writable location it should be unnecessary — **and an admin prompt anyway is itself a
-   finding.**
-3. **Disable Wi-Fi/Ethernet, then launch.** Guarantees no update check can occur before the
-   settings are reachable.
-4. Verify and set: automatic update check **off**; activity log **off**.
-5. Quit. Check whether `~/Library/Logs/Micro Snitch.log` was created and whether a login item
-   was registered.
-6. Re-enable the network only afterwards.
+```
+/Applications    drwxrwxr-x  root  admin     <- writable only by root and the admin group
+~/Applications   drwx------  <user> staff    <- owned outright by the account
+```
 
-**Expected-result note:** device-state observation requires no TCC permission, so **no
-microphone or camera prompt should appear.** If one does, it contradicts the Phase 4 capture
-finding — stop and re-open the audit.
+A **standard** (non-admin) user cannot write to `/Applications` at all. That is exactly the
+condition that makes a self-updating app reach for the `system.privilege.admin` root shell found
+in Phase 4 — it cannot replace itself in place, so it escalates.
+
+Install into `~/Applications` instead and **the updater has no legitimate reason to escalate.**
+An admin prompt then becomes a *finding* rather than an expected inconvenience. Installed to
+`/Applications`, the two cases are indistinguishable and the test proves nothing.
+
+For the same reason the throwaway account must be **Standard, not Administrator**: escalation
+from a standard account demands a *different* admin account's credentials, which is unmistakable
+and easy to decline.
+
+### Procedure
+
+**In the normal account:**
+
+1. Stage the disk image via the shared handoff directory (`/Users/Shared` is `drwxrwxrwt` — all
+   local accounts can read it, and the sticky bit limits deletion to each file's owner). Do not
+   let the test account browse the repo:
+   ```sh
+   cp <repo>/quarantine/micro-snitch/MicroSnitch-1.6.1.dmg /Users/Shared/
+   ```
+   Copy the **`.dmg`**, not an extracted app: macOS `cp` preserves extended attributes, so the
+   `com.apple.quarantine` flag travels with it — which is required for Gatekeeper to evaluate
+   the app at first launch.
+2. System Settings → Users & Groups → create a **Standard** user.
+
+**In the throwaway account:**
+
+3. `mkdir -p ~/Applications`
+4. Open `/Users/Shared/MicroSnitch-1.6.1.dmg` to mount it.
+5. Drag `Micro Snitch.app` into `~/Applications`. **Not** the `Applications` symlink shown in the
+   disk-image window — that points at `/Applications` and defeats the test.
+6. Eject the disk image.
+7. **Disable Wi-Fi/Ethernet, then launch.** Guarantees no update check can occur before the
+   settings are reachable. Note this is machine-wide and will also drop the network in any other
+   logged-in session.
+8. Verify and set: automatic update check **off**; activity log **off**.
+9. Quit. Check whether `~/Library/Logs/Micro Snitch.log` was created, and whether an entry
+   appears under System Settings → General → Login Items.
+10. Re-enable the network only afterwards.
+
+**Cleanup:** delete the account (Users & Groups removes its home folder), then remove the staged
+image from `/Users/Shared`.
+
+### Expected results, and what invalidates the audit
+
+| Observation | Meaning |
+|---|---|
+| *"…is an app downloaded from the Internet. Are you sure you want to open it?"* | ✅ **Expected and positive.** Gatekeeper confirming the quarantine flag and the stapled ticket under real conditions |
+| No microphone or camera permission prompt | ✅ **Expected.** Device-state observation requires no TCC grant |
+| **A microphone or camera prompt appears** | 🛑 **Stop.** Contradicts the Phase 4 capture finding — re-open the audit |
+| **An admin password prompt appears** | 🛑 **Stop.** Nothing should require elevation from `~/Applications` |
+| Either required toggle is missing | 🛑 **Decision reverts to Hold** — the restrictions cannot be satisfied |
 
 ---
 
@@ -372,9 +416,16 @@ has been observed yet.** All findings are point-in-time and apply to build 1337 
 
 ## Appendix A — recorded baseline
 
-Machine-readable output of `scripts/verify-known-artifact.sh --record`, taken from the app
-mounted read-only. A future version is checked with
-`scripts/verify-known-artifact.sh --baseline <this file> <new app>`.
+Complete, **unedited** output of `scripts/verify-known-artifact.sh --record`. A future version is
+checked with `scripts/verify-known-artifact.sh --baseline <this file> <new app>`.
+
+> **Do not hand-edit this block.** An earlier revision of this report abridged it — the 27
+> `nonapple-lib` lines were removed "for readability" with the omission explained in prose. The
+> script cannot read prose, so it reported **28 false `🛑 NEW NON-APPLE LIBRARY` alarms** against
+> a provably clean artifact. Failing loudly on a good artifact is worse than not checking at all,
+> because it teaches the reader to discount 🛑 markers. The block below is the raw output and has
+> been **round-trip tested** (`--record` then `--baseline` against the same bundle → *"No drift.
+> Every recorded invariant still holds."*).
 
 | Invariant | Value at 1.6.1 (1337) |
 |-----------|----------------------|
@@ -388,35 +439,65 @@ mounted read-only. A future version is checked with
 | Entitlements — main app | `device.audio-input`, `device.camera` (**inert; not sandboxed**) |
 | Entitlements — login helper | `app-sandbox = 1` |
 | Provisioning profile | none |
-| Third-party linked libraries | none |
+| Third-party linked libraries | none — the `nonapple-lib` rows below are Apple's Swift runtime |
 | Bundled scripts | 1 (`Resources/listdevices`, Perl, read-only) |
 | Declared network endpoints | 1 (`sw-update.obdev.at:443/TCP`) |
 
 ```
 # ECISF known-artifact baseline (schema 1)
 # artifact: Micro Snitch.app
+# recorded: 2026-08-07
 # This records what was true at audit time. It is evidence, not permission.
-bundle-identifier	at.obdev.MicroSnitch
-notarization	stapled
-gatekeeper	accepted
-component	Contents/MacOS/Micro Snitch
-component	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper
-teamid	Contents/MacOS/Micro Snitch|MLZF7K7B5R
-teamid	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|MLZF7K7B5R
-authority	Contents/MacOS/Micro Snitch|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
 authority	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
-cdflags	Contents/MacOS/Micro Snitch|0x10000
+authority	Contents/MacOS/Micro Snitch|Developer ID Application: Objective Development Software GmbH (MLZF7K7B5R)
+bundle-identifier	at.obdev.MicroSnitch
 cdflags	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|0x10000
+cdflags	Contents/MacOS/Micro Snitch|0x10000
+component	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper
+component	Contents/MacOS/Micro Snitch
+entitlement	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|"com.apple.security.app-sandbox" => 1
 entitlement	Contents/MacOS/Micro Snitch|"com.apple.security.device.audio-input" => 1
 entitlement	Contents/MacOS/Micro Snitch|"com.apple.security.device.camera" => 1
-entitlement	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|"com.apple.security.app-sandbox" => 1
+gatekeeper	accepted
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftAppKit.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftCore.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftCoreFoundation.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftCoreGraphics.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftCoreImage.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftDarwin.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftDispatch.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftFoundation.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftIOKit.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftMetal.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftObjectiveC.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftQuartzCore.dylib
+nonapple-lib	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|@rpath/libswiftXPC.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftAppKit.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftCore.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftCoreAudio.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftCoreFoundation.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftCoreGraphics.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftCoreImage.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftCoreMedia.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftDarwin.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftDispatch.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftFoundation.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftIOKit.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftMetal.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftObjectiveC.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftQuartzCore.dylib
+nonapple-lib	Contents/MacOS/Micro Snitch|@rpath/libswiftXPC.dylib
+notarization	stapled
+teamid	Contents/Library/LoginItems/Micro Snitch Open At Login Helper.app/Contents/MacOS/Micro Snitch Open At Login Helper|MLZF7K7B5R
+teamid	Contents/MacOS/Micro Snitch|MLZF7K7B5R
 ```
 
 > **Two notes for whoever runs the next comparison.**
-> 1. The script's `nonapple-lib` heuristic excludes only `/System/Library/` and `/usr/lib/`, so
->    it records all 27 `@rpath/libswift*.dylib` entries as non-Apple. **They are Apple's Swift
->    runtime**, resolving via the `/usr/lib/swift` rpath because the bundle has no
->    `Contents/Frameworks`. Expected noise, omitted above for clarity — not a finding.
+> 1. Every `nonapple-lib` row above is **Apple's Swift runtime**, not a third-party dependency.
+>    The script's heuristic excludes only `/System/Library/` and `/usr/lib/`, so `@rpath/…` entries
+>    fall through. They resolve to `/usr/lib/swift` because the bundle has **no
+>    `Contents/Frameworks`**. They are recorded here so the comparison runs clean; a genuinely new
+>    third-party library would still stand out as an addition.
 > 2. The script calls `xcrun stapler`. On a machine with only Command Line Tools active, bare
 >    `stapler` fails with *"requires Xcode"*, but **`xcrun stapler` resolves correctly** to
 >    `/Library/Developer/CommandLineTools/usr/bin/stapler` and works. Verified in this session.
