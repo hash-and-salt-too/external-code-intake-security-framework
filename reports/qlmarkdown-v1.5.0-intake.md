@@ -1,11 +1,32 @@
 # Intake Review — QLMarkdown v1.5.0
 
-> **Status: in progress.** This report is filled in phase by phase and doubles as the
-> checkpoint for the review — if the session is interrupted, resume from the first
-> section still marked *pending*.
+> **Status: complete. Decision: REJECT** (2026-09-14).
 >
-> **Result key:** ✅ pass · ⚠️ concern · 🛑 dealbreaker · ➖ N/A · ⏳ pending.
+> **Result key:** ✅ pass · ⚠️ concern · 🛑 dealbreaker · ➖ N/A.
 > An unknown that can't be resolved is a ⚠️ or 🛑 — never a ✅.
+
+> ### 🔒 Redaction notice
+>
+> **This is a redacted public version.** One finding — a weakness allowing a previewed
+> document to cause unrelated local files to be read and embedded into the preview — is
+> described here only at the level of *what it is and what it means*, never *how to do it*.
+> The mechanism, the affected code paths, and the reproduction steps are **deliberately
+> withheld**.
+>
+> **This redaction is permanent, not temporary.** This reviewer's personal intake framework is a
+> learning project; pursuing vulnerability reports is outside its scope. The weakness therefore
+> appears to remain unreported and unfixed, and publishing a working technique against a widely
+> used application would be irresponsible — particularly from a repository about careful
+> security practice.
+>
+> Everything that makes this useful as a *worked example* is intact: the method, the phase
+> structure, the evidence trail, the decision and its reasoning, and the effort measurements.
+> Full unredacted detail is retained privately, outside version control.
+>
+> **Nothing here should be read as an accusation against QLMarkdown or its maintainer.** See
+> the decision rationale — provenance, supply chain, signing and most runtime behaviour were
+> all *good*. A separate, non-sensitive hardening suggestion was raised openly upstream as
+> [sbarex/QLMarkdown#238](https://github.com/sbarex/QLMarkdown/issues/238).
 
 ---
 
@@ -20,11 +41,11 @@
 | **Install method** (source / pre-built / package mgr) | ⏳ pending |
 | **Date of audit** | 2026-07-29 |
 | **Reviewer** (you; AI may assist with evidence) | Repo maintainer (human). AI assistant gathered and explained evidence only. |
-| **Overall risk rating** | ⏳ pending final — currently trending **High** on the untrusted-input path (finding #22) |
-| **DECISION** | 🟡 **HOLD — needs a second look** (interim, recorded 2026-08-03 after Phase 3). *Not a rejection.* Use and sharing are blocked until Phase 5 resolves whether finding #22's arbitrary local-file read can be exfiltrated. If Phase 5 shows it cannot, this may loosen to **Accept with restrictions** with "Inline HTML (unsafe)" **off**. |
-| **Decision made by** (a human — not the AI) | Repo maintainer (human), 2026-08-03. AI gathered and explained evidence only. |
-| **One-line rationale** | A merely-previewed Markdown file can cause arbitrary user-readable files to be base64-embedded into the preview DOM (#22); impact is unresolved pending runtime observation, so *fail closed* until it is. |
-| **Re-audit trigger** | ⏳ pending final |
+| **Overall risk rating** | **High** — on the untrusted-input path. Two necessary conditions for local-file disclosure were both demonstrated at runtime (#35, #36) in a component the OS invokes automatically. |
+| **DECISION** | 🔴 **REJECT** — recorded 2026-09-14, on the criteria pre-committed 2026-09-11 *before* any runtime observation. |
+| **Decision made by** (a human — not the AI) | **Repo maintainer (human), 2026-09-14.** The AI gathered, explained and recorded evidence; it made no accept/reject determination. |
+| **One-line rationale** | Merely previewing a Markdown file embeds arbitrary user-readable file contents into the preview DOM (#35) **and** JavaScript executes in that same DOM (#36) — the two pre-committed reject conditions — and a safe, zero-cost alternative exists (open Markdown in VS Code), so there is no reason to carry the risk. |
+| **Re-audit trigger** | Only if upstream substantively reworks the inline-image handling behind finding #22. **A new version alone is not sufficient** to reopen this. |
 
 > **Decision model:** **Accept** · **Accept with restrictions** (use only under limits written down — never to wave through a risk that can't be explained) · **Reject** (reviewed, not safe) · **Hold — needs a second look** (something unresolved; use/sharing blocked until it is). Unresolved *high-impact* questions default to blocked (*fail closed*). The AI gathers evidence; a **human owns the decision.** See [`../docs/00-scope-and-boundaries.md`](../docs/00-scope-and-boundaries.md).
 
@@ -131,7 +152,7 @@ submodules deliberately **not** initialized). HEAD verified `= b59df6acb713881a9
 | No unjustified privilege escalation | ✅ | **Zero hits** for `AuthorizationExecuteWithPrivileges`, `setuid`, `sudo`, "administrator privileges". |
 | No obfuscation / hidden payloads | ✅ | No base64 blobs presented as code, no minified first-party sources, no encoded-then-executed content. `cmark-extra/b64.c` is a **directory** containing a small vendored base64 library (used for data-URI image embedding) — legitimate, though another undocumented third-party component. |
 | Telemetry disclosed & proportionate (or none) | ✅ | `Settings.renderStats` is a **local counter only**. Incremented in `PreviewViewController.swift:147` and the CLI; used solely to inject a "buy me a coffee" block into the preview every 100 renders. **Never transmitted** — no network send anywhere in its code paths. Not telemetry. ℹ️ Minor privacy note: `os_log(… %{public}s, url.path)` records the **path of every previewed file** into the system log at public visibility. |
-| Untrusted-input handling (memory safety / sanitization) | 🛑 | **See finding #22 — the significant concern of this audit.** Additional context: `unsafeHTMLOption` defaults to **`true`** and `validateUTFOption` defaults to **`false`**, so raw document HTML is rendered and UTF-8 validation is *off* before input reaches the C parser. `SwiftSoup` is used only as a **DOM parser** (`parseBodyFragment`) — **not** as a sanitizer; no `Cleaner`/`Safelist`/`Whitelist` appears anywhere. The only HTML filtering is GFM's `tagfilter`, a **9-tag blocklist** that does not stop event-handler attributes (`<img onerror=…>`, `<svg onload=…>`). |
+| Untrusted-input handling (memory safety / sanitization) | 🛑 | **See finding #22 — details redacted.** Contributing context, stated without a recipe: a security-relevant rendering option ships **enabled**, and a hardening option ships **disabled**, so raw document HTML is rendered and input validation is off before content reaches the bundled C parser. `SwiftSoup` is used only as a **DOM parser**, **not** as a sanitizer — no `Cleaner`/`Safelist`/`Whitelist` appears anywhere. The only HTML filtering is GFM's `tagfilter`, a fixed **9-tag blocklist** which by design does not constrain event-handler attributes. |
 | Fork diff reviewed (if applicable) | ➖ | Not a fork — `sbarex/QLMarkdown` is the original (Phase 1). |
 
 ## Phase 4 — Binary / artifact ⚠️ complete with concerns
@@ -155,17 +176,73 @@ Bundle contains `QLMarkdown.app` with `Markdown QL Extension.appex` (which embed
 | `.pkg`/`.dmg` inspected w/o installing; scripts read | ➖ | **Not applicable — and this is a positive.** The release ships as a plain `.zip` containing `QLMarkdown.app`, with **no `.pkg`/`.dmg` installer**, therefore **no pre/postinstall scripts running with elevated rights** — the single most common macOS installer attack vector is absent by construction. |
 | *(additional)* Completeness of the audited artifact | 🛑 | **The signed, hashed artifact does not contain all the code it will run.** `find` across the whole bundle returns **zero `.js` files**; neither MathJax nor Mermaid ships inside it. Per the README they are **downloaded at first launch from `cdn.jsdelivr.net`** and cached in `~/Library/Group Containers/group.org.sbarex.qlmarkdown/js`. See finding #29. |
 
-## Phase 5 — Runtime / sandbox ⏳ pending
+## Phase 5 — Pre-commitment (recorded *before* any runtime observation)
+
+> Recorded **2026-09-11**, before the isolated environment was exercised. Per
+> [`../docs/checklists/phase-5-isolation-setup.md`](../docs/checklists/phase-5-isolation-setup.md)
+> Part 0: *"Write down, in advance, what result would make you reject. Deciding the threshold
+> after you see the data invites rationalising."*
+
+**Environment.** Standard (non-admin) macOS account named **`isolation`** on macOS 15.7.8
+(Intel). Monitoring: **Little Snitch 6.4.1** — itself intake-reviewed and accepted
+([`little-snitch-v6.4.1-intake.md`](little-snitch-v6.4.1-intake.md)); the installed version
+matches the audited version, no self-update drift. A **local HTTP listener on
+`127.0.0.1:8000`** is the *primary* exfiltration oracle, because Quick Look extensions execute
+inside Apple host processes and outbound-firewall attribution is therefore unreliable.
+**Backups verified:** Time Machine and Carbon Copy Cloner both running continuously.
+
+ℹ️ *Noted for completeness:* Little Snitch was installed **from** the `isolation` account, which
+required entering administrator credentials inside that session — momentarily bridging the
+isolation boundary. No untrusted code was running at the time, so the practical risk is
+negligible. Subsequent Little Snitch configuration is to be performed **from the admin account**,
+with testing done after fast-user-switching into `isolation`.
+
+**Hypotheses under test** (from Phases 3–4):
+
+1. **#22** — a crafted Markdown file, merely previewed, causes the contents of an unrelated
+   user-readable file to be embedded into the preview DOM. *(Mechanism redacted.)*
+2. **#24** — unknown whether JavaScript executes in Quick Look's *data-based* preview host;
+   Math/Mermaid rendering correctly would imply that it does.
+3. **#29 / #33** — MathJax and Mermaid are fetched **unpinned** from `cdn.jsdelivr.net`; unclear
+   whether once-and-cached or per-render, and whether the fetch precedes any consent.
+4. **#12** — Sparkle should not contact the appcast before the user consents.
+
+**Pre-committed decision thresholds:**
+
+| Observed outcome | Verdict |
+|---|---|
+| A canary string appears in **any** network request | **REJECT** — exfiltration confirmed |
+| Contacts a destination that no phase predicted | **REJECT** |
+| Installs a launch agent / daemon / login item, spawns a shell or interpreter, or demands administrator rights | **REJECT** |
+| **#22 reproduces AND JavaScript executes in the preview host** | **REJECT** — the full chain is live |
+| #22 reproduces, but **no** script execution and **no** egress | **ACCEPT WITH RESTRICTIONS** — "Inline HTML (unsafe)" off, Mermaid off, "Validate UTF" on, auto-update disabled |
+| Cannot determine whether JavaScript executes; results ambiguous | **REMAINS HOLD** |
+| #22 does not reproduce, no unexpected traffic, no persistence | **ACCEPT** (restrictions still advisable) |
+
+> The load-bearing row is the fourth. It is the pre-commitment that prevents rationalising
+> *"it's only a local file read"* after the setup cost has already been paid.
+
+---
+
+## Phase 5 — Runtime / sandbox 🛑 complete — finding #22 CONFIRMED
+
+**Environment.** Standard non-admin account `isolation`, macOS 15.7.8. App installed to
+`~/Applications` (never `/Applications`). Local HTTP listener on `127.0.0.1:8000` as the primary
+oracle. Little Snitch 6.4.1 in a deny-by-default `Audit` profile. Evidence captured in
+`/Users/Shared/phase5-kit/out/`. **Executed 2026-09-12 → 2026-09-14.**
 
 | Check | Result | Evidence / note |
 |-------|:------:|-----------------|
-| Isolation level used | ⏳ | |
-| Network behavior (destinations contacted) | ⏳ | |
-| File access (only expected paths) | ⏳ | |
-| Process spawning (nothing unexpected) | ⏳ | |
-| Behavior with hostile/malformed input | ⏳ | |
-| Persistence check (launch agents, login items, QL plugins, rc) | ⏳ | |
-| Clean uninstall / snapshot reverted | ⏳ | |
+| Isolation level used | ✅ | Separate standard (non-admin) macOS account, verified unable to read the main account's home, unable to `sudo`. Canary decoys only — **no real credentials anywhere**. Installed to `~/Applications`. Extension confirmed active: `pluginkit` shows `+ org.sbarex.QLMarkdown.QLExtension(1.5.0)`, and `00-control.md` rendered **formatted**, proving the probes exercised the real code path rather than macOS's fallback text preview. |
+| Network behavior (destinations contacted) | ⚠️ | **At first launch:** one Little Snitch alert — *"QLMarkdown wants to connect to **picsum.photos**"*. **Unpredicted by any earlier phase**, but explained on investigation: `examples/test1.md` (bundled) contains `https://picsum.photos/300/200`, loaded into the editor pane on launch. Benign, but see finding #37. **On preview:** `01-remote-image.md` caused **both** a Markdown-syntax image *and* a raw-HTML image to fetch from the listener (`/remote-image-probe.png`, `/remote-html-img.png`) — **merely previewing a file reaches the network with no interaction**. |
+| File access (only expected paths) | 🛑 | **See finding #35 — details redacted.** Decoy files containing unique fake "canary" strings, placed where real credentials would live, had their contents embedded into the rendered preview after a single preview action. Three hits across two decoy files; zero plaintext hits, confirming encoded embedding. No real credential existed anywhere in the test account. |
+| Process spawning (nothing unexpected) | ✅ | No shells, interpreters or network utilities spawned. `launchctl` diff shows only PID churn in unrelated Apple agents. |
+| Behavior with hostile/malformed input | ✅ | `07-malformed.md` (invalid UTF-8, truncated tables, 500-deep nesting, 300-deep blockquotes): **no crash, no hang** — rendered an empty window with a box. `08-large.md` (~2.4 MB): rendered in **under 1 second**, scrollable to the last line, no CPU spin. **No memory-safety symptom observed** — though absence of a crash in one session is weak evidence about a C parser, not proof of safety. |
+| Persistence check (launch agents, login items, QL plugins, rc) | ✅ | **Clean.** The only meaningful diff is the creation of `~/Library/Group Containers/group.org.sbarex.qlmarkdown` — expected. **No new launch agents, no launch daemons, no login items, no shell-rc changes.** Remaining diff lines are PID churn and unrelated background activity (Notes, Zoom, Tips). |
+| Clean uninstall / snapshot reverted | ⏳ | Deferred until the decision is recorded — the `isolation` account and `quarantine/` are intentionally retained as evidence. |
+| *(additional)* **JavaScript execution in the preview host** | 🛑 | **See finding #36.** Probe content previewed by pressing space in Finder demonstrated that **JavaScript executes inside the Quick Look preview**. A `<script>` tag was correctly stripped by the tag filter; other standard HTML constructs that the 9-tag blocklist does not cover were **not** stripped and did execute. This resolves the open question in finding #24. Probe payloads withheld. |
+| *(additional)* **CDN-delivered JavaScript** | 🛑 | **See finding #38.** `~/Library/Group Containers/group.org.sbarex.qlmarkdown/js/` **never existed** — before first launch, after first launch, or after previewing Math and Mermaid. Yet the **Mermaid diagram drew** and the **Math rendered as typeset output**, both of which require their JavaScript libraries. Settings confirm `.link` mode (*"Math extension (linked)"*, *"Mermaid diagram (linked)"*). The libraries are therefore fetched **live from `cdn.jsdelivr.net` at render time** — not cached locally at all. |
+| *(additional)* **Sparkle auto-update consent** | ✅ | **Finding #12 resolved favourably.** On first launch Sparkle presented *"Check for updates automatically?"* with *"Automatically download and install updates"* **unchecked by default**, and buttons `[Don't Check]` / `[Check Automatically]`. The reviewer chose **Don't Check**. **It asked before checking** — matching the source-level prediction that an absent `SUEnableAutomaticChecks` key produces a consent prompt. No pre-consent contact with the appcast was observed. |
 
 ---
 
@@ -280,35 +357,23 @@ Bundle contains `QLMarkdown.app` with `Markdown QL Extension.appex` (which embed
 
 **From Phase 3:**
 
-22. 🛑 **Arbitrary local-file read reachable from a previewed document (the significant finding).**
-    Established by source reading only; **not tested, not executed.** Two image paths exist with
-    different protection:
-    - **Path A — markdown-syntax images `![](…)`: protected.** Swift passes `nil` for the MIME
-      callback (`Settings+render.swift:254`), so the C code derives the type **independently**
-      via `get_mime(image_path, 2)` and then enforces `startsWith("image/", mime)`
-      (`inlineimage.c:231–236`). A caller cannot influence that derivation.
-    - **Path B — raw HTML `<img src="…">` while unsafe HTML is on: the check is vacuous.**
-      The Swift `unsafe_html_processor_callback` (`Settings+render.swift:~289–325`) builds
-      `mime = "image/\(ext)"` from the *path extension*, with a `default:` branch accepting
-      **any** extension, then passes that string to `get_base64_image2`, which validates the
-      **caller-supplied** value against `startsWith("image/", mime)` (`inlineimage.c:333`).
-      It always passes by construction; a file with no extension yields `"image/"`, which also
-      passes. There is additionally **no path-traversal check** —
-      `baseDir.appendingPathComponent(src).path` is applied directly to document-controlled `src`.
+22. 🛑 **[REDACTED — see the redaction notice at the top of this report] Local-file disclosure
+    reachable from a previewed document.** Source review identified a weakness by which a
+    crafted Markdown file, **merely selected in Finder**, can cause the contents of an
+    unrelated user-readable file to be read and embedded into the rendered preview. No click
+    and no consent are required.
 
-    **Resulting chain:** `<img src="../../../../../../Users/<you>/.ssh/id_rsa">` in a `.md` file
-    → not `http`, not `data:` → resolves outside the document folder → `fileExists` ✓ →
-    `mime = "image/"` ✓ → `fopen` + full read + `b64_encode` → embedded in the preview DOM as
-    `data:image/;base64,…`. **Triggered by merely selecting the file in Finder** — no click, no
-    consent. Amplified by `unsafeHTMLOption` defaulting to **`true`** and the extension's
-    `com.apple.security.temporary-exception.files.absolute-path.read-only = /` entitlement.
+    Two design properties combine to make it reachable, and a feature that ships **enabled by
+    default** is what exposes it. The relevant validation exists in the code but does not
+    constrain what an attacker controls. **The specific mechanism, affected files, and
+    reproduction steps are withheld.**
 
-    **Explicitly NOT established:** that the data can be **exfiltrated**. That requires
-    JavaScript executing in Quick Look's host *and* network egress. The extension does hold
-    `com.apple.security.network.client`, and Math/Mermaid are enabled by default — but the JS
-    policy on the macOS 12+ data-based path is unproven (see #24). TCC still gates
-    `~/Documents`/`~/Desktop`; `~/.ssh`, `~/.aws` and shell rc files are **not** TCC-protected.
-    → **Phase 5 verification item, to be tested only in an isolated environment.**
+    Established by reading only at this stage — nothing was executed. Confirmed later at
+    runtime; see finding #35.
+
+    **Not established at this stage:** whether the embedded data could be **exfiltrated**.
+    That requires JavaScript execution in the preview host plus network egress. The extension
+    does hold `com.apple.security.network.client`. → resolved in Phase 5 (#36).
 23. ⚠️ **Documented defaults do not match code defaults.** README: *"By default, HTML tags are
     stripped and unsafe links are replaced by empty strings."* Source: `unsafeHTMLOption = true`
     (`Settings.swift:475`). The README accurately describes **`cmark-gfm`'s library** default,
@@ -425,26 +490,90 @@ Bundle contains `QLMarkdown.app` with `Markdown QL Extension.appex` (which embed
       (manually refreshed from a menu), which would deliver *neither* benefit — frozen at
       whatever was latest on first launch, with no automatic fixes. ⏳ **P5 must determine which
       behaviour is real.**
-    - 🔗 **Synthesis — this is the missing link in finding #22.** #22 places arbitrary local file
-      content into the preview DOM; exfiltrating it requires script execution, and a Mermaid
-      injection bug is a documented, recurring route to exactly that, in a renderer enabled **by
-      default**. Chain: malicious `.md` → `<img src="../../../.ssh/id_rsa">` embeds the key as
-      base64 → Mermaid injection yields script execution → `com.apple.security.network.client`
-      sends it out. **Every link is a documented weakness; the chain has NOT been demonstrated
-      and is not claimed to work.** It is, however, coherent, and it is the strongest single
-      argument for the current Hold.
+    - 🔗 **Synthesis — this is the missing link in finding #22.** #22 places unrelated local file
+      content into the preview DOM; exfiltrating it would additionally require script execution,
+      and a Mermaid injection bug is a documented, recurring route to exactly that, in a renderer
+      enabled **by default**. Every link in that chain is a separately documented weakness.
+      **The chain was NOT demonstrated and is not claimed to work** — composing it would be
+      exploit development, not intake review. It is, however, coherent, and it was the strongest
+      single argument for the Hold that preceded the final decision. *(Payload redacted.)*
 34. **⏸️ Parked — second disclosure candidate: unpinned CDN JavaScript with no Subresource
     Integrity.** Distinct from #22. A constructive upstream issue would ask for (a) a pinned
     `@version` in the jsDelivr URLs, and/or (b) an SRI hash, and/or (c) shipping the libraries
     in the bundle. To be considered alongside #28 once the audit concludes.
 
+**From Phase 5:**
+
+35. 🛑 **[REDACTED] Finding #22 CONFIRMED at runtime.** Predicted from source in Phase 3,
+    demonstrated in Phase 5 inside the isolated account. Decoy files containing unique,
+    deliberately fake "canary" strings were placed where a real credential would live. After a
+    single preview action, the rendered output contained those decoy contents in encoded form —
+    **three separate hits across two different decoy files**, with zero plaintext hits,
+    confirming the data was embedded rather than merely referenced.
+
+    **Broader than predicted.** Source review expected one of two code paths to be protected.
+    **Neither was, in practice** — both variants embedded the decoy. The protection that exists
+    at one layer is bypassed by processing that happens at a later layer.
+
+    **Extension behaviour.** A `log show` query across the probe window found **zero** rejection
+    messages, while subsystem activity confirmed the extension was running and logging. The
+    extension did **not** refuse the files.
+
+    *Precision note: the decoy hits were captured via a bundled command-line tool that shares the
+    rendering engine; the absence of rejection logging and the rendering behaviour are the
+    extension-side evidence. The two are consistent but were not demonstrated in a single
+    process.*
+
+    **Mechanism, payload and file references withheld** — see the redaction notice.
+36. 🛑 **[REDACTED] JavaScript DOES execute in the Quick Look preview — finding #24 resolved.**
+    Probe content previewed by pressing space in Finder caused outbound requests to a local
+    listener, proving script execution inside the preview. A `<script>` tag **was** correctly
+    stripped by the tag filter; other standard HTML constructs outside its fixed 9-tag blocklist
+    were not, and executed. **Conclusion: the tag filter blocks `<script>` and is not a general
+    defence.** This was the open question that gated the whole review. Probe payloads withheld.
+37. ⚠️ **An unpredicted network destination appeared — and it exposes a method gap.** First launch
+    contacted **`picsum.photos`**, which no earlier phase predicted. It is explicable and benign:
+    the bundled `examples/test1.md` contains `https://picsum.photos/300/200`, loaded into the
+    editor pane on launch. **But the Phase 3 network sweep should have caught it and didn't** —
+    that sweep covered `.swift`/`.c`/`.cpp` source only, never **bundled content assets**. A real
+    endpoint was missed by a method that looked thorough. Any future script must sweep shipped
+    resources (`.md`, `.html`, `.css`, `.json`) as well as code.
+38. 🛑 **CDN JavaScript is fetched live at render time — finding #29 confirmed and escalated.**
+    The cache directory `Group Containers/group.org.sbarex.qlmarkdown/js/` **never existed** at
+    any point: not before launch, not after launch, not after previewing Math and Mermaid files.
+    Yet the Mermaid diagram **drew** and the Math **rendered as typeset output** — both impossible
+    without their libraries. Settings confirm `.link` mode. Therefore the libraries are pulled
+    **from `cdn.jsdelivr.net` on demand, every time**, rather than downloaded once and cached as
+    the README describes. Combined with #36, this means: **previewing a Markdown file fetches
+    unpinned third-party JavaScript over the network and executes it inside the preview.** No
+    Subresource Integrity, no version pin, no local copy to audit.
+39. ✅ **Genuinely reassuring Phase 5 results, recorded for balance.** **Persistence is clean** —
+    no launch agents, no daemons, no login items, no shell-rc modification; the only durable
+    change is the expected group container. **No process spawning.** **Malformed input** (invalid
+    UTF-8, truncated tables, 500-deep nesting) caused **no crash or hang**. **A 2.4 MB file**
+    rendered in under a second. **Sparkle asked for consent** before checking for updates, with
+    auto-install unchecked by default (#12 resolved favourably). The software is not badly built;
+    it has a specific, serious design flaw.
+40. **The chain was deliberately NOT composed.** Both halves are now proven independently —
+    arbitrary file content reaches the preview DOM (#35), and JavaScript executes in that DOM
+    (#36). **No probe attempted to combine them**, and **no canary string ever appeared in a
+    listener request**, so actual exfiltration was *not* observed. That was a deliberate choice:
+    [`../docs/checklists/phase-5-isolation-setup.md`](../docs/checklists/phase-5-isolation-setup.md)
+    Part 7 states *"Do not write proof-of-concept exploits… you are doing intake review, not
+    exploit development."* Composing the two would be writing a working exploit. **The reviewer
+    should weigh proven-necessary-conditions against unproven-composition when deciding.**
+
 ## Dealbreakers encountered (if any)
 
-- **None proven.** Finding #22 (arbitrary local-file read reachable from a merely-previewed
-  document) is the candidate. It is established from source, but its impact hinges on an
-  unverified question — whether the read data can leave the machine — which Phase 5 must
-  settle in isolation. Under *fail closed*, an unresolved **high-impact** question defaults to
-  blocked.
+- 🛑 **Local-file disclosure into the preview DOM, triggered by selecting a file in Finder**
+  (#22 → confirmed as #35), **combined with JavaScript execution in that same DOM** (#24 →
+  confirmed as #36). Both were pre-committed as reject conditions on 2026-09-11, before any
+  runtime observation, and both were demonstrated on 2026-09-14. *Mechanism redacted.*
+- 🛑 **Unpinned third-party JavaScript fetched from a CDN at render time and executed in the
+  preview** (#29 → confirmed as #38), with no Subresource Integrity and no local copy to audit.
+  Independently sufficient to fail the "the artifact contains the code it runs" expectation.
+  *Not redacted — raised openly upstream as
+  [sbarex/QLMarkdown#238](https://github.com/sbarex/QLMarkdown/issues/238).*
 
 ## Conditions / restrictions if installing
 
@@ -474,7 +603,30 @@ surfaced so far, not yet chosen)_
 
 ## Decision rationale (the "why," in a few sentences)
 
-> ⏳ pending
+> **REJECT.** Two conditions were written down on 2026-09-11 as automatic reject criteria,
+> deliberately *before* the software was ever run, so the outcome could not be rationalised after
+> the setup cost had been paid. Both were then met: arbitrary user-readable files are embedded
+> into the preview DOM by merely selecting a file in Finder (#35), and JavaScript executes in
+> that DOM (#36). A third, independently serious issue was also confirmed — unpinned third-party
+> JavaScript pulled from a CDN at render time and executed in the preview (#38).
+>
+> **The reviewer explicitly acknowledged less than 100% certainty.** The two halves of the chain
+> were proven separately and never composed into a working exploit, because composing them would
+> be exploit development rather than intake review (#40). Under *fail closed*, proven necessary
+> conditions plus an undemonstrated final step still fails — the framework does not require a
+> working exploit before declining to run something.
+>
+> **The decisive practical factor: the alternative is free.** Markdown files open perfectly well
+> in VS Code. When a safe substitute costs nothing, there is no reason to carry a High-rated risk
+> on the untrusted-input path of an OS component that runs automatically. Rejection here is
+> cheap; that asymmetry should be weighed explicitly in every intake decision.
+>
+> **This is not a judgement that QLMarkdown is malicious, or poorly made.** Provenance is strong
+> (Phase 1), the supply chain is well pinned (Phase 2), the binary is properly signed, notarized
+> and stapled with entitlements matching its source (Phase 4), and runtime behaviour showed no
+> persistence, no process spawning, no crash on hostile input, and correct consent-seeking before
+> update checks (Phase 5). It has one specific, serious design flaw in how it handles images
+> referenced by untrusted documents.
 
 ## Update log (re-audits of later versions)
 
