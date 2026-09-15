@@ -325,9 +325,10 @@ scripts/verify-known-artifact.sh \
   --baseline reports/<artifact>-<newversion>.baseline.txt \
   "/Applications/<App>.app"
 
-# 2. Ownership - NOT covered by the baseline schema. Check it by hand.
-#    Expect 0. Anything else means the install changed who can modify the app.
-find "/Applications/<App>.app" ! -user root | wc -l
+# 2. Can a less-privileged account rewrite privileged code?
+#    NOT a baseline question - ownership is assigned at install time, so it
+#    cannot travel with the artifact. See --help for why.
+scripts/verify-known-artifact.sh --system-ownership "/Applications/<App>.app"
 
 # 3. The staged copy should match the audited one.
 #    Compare EVERY staged copy - there will be more than one after an update.
@@ -351,6 +352,16 @@ scripts/verify-known-artifact.sh --system-persistence "/Applications/<App>.app"
 > reports a mismatch on a perfectly correct install. Enumerate them all, then confirm
 > which one the running process uses. The tooling is not broken in that case; it is
 > answering a subtly different question than the one you meant to ask.
+
+> ⚠️ **Steps 2 and 5 are a pair; neither is sufficient alone.** `--system-ownership`
+> weighs its warning against the privileged components a bundle **declares**, so an app
+> whose privileged code lives *outside* the bundle looks unprivileged to it and the
+> warning is downgraded accordingly. `--system-persistence` is what finds that code.
+> Run both.
+>
+> **Write the ownership figure into the report.** That check reports *state*, not
+> *change* — it cannot know what the ownership used to be. Recording it is the only
+> thing that lets the next update detect a regression.
 
 All of these must agree before the update is considered closed. The chain you are
 proving is **audited bytes → installed bytes → staged bytes → running bytes**.

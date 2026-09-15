@@ -12,6 +12,7 @@ Usage:
   scripts/verify-known-artifact.sh --record <bundle> [> baseline.txt]
   scripts/verify-known-artifact.sh --baseline <baseline.txt> <bundle>
   scripts/verify-known-artifact.sh --system-persistence <bundle>
+  scripts/verify-known-artifact.sh --system-ownership <bundle>
 
 Compares a new version of an already-audited artifact against the invariants
 recorded when it was audited: Team ID, signing authority, notarization,
@@ -33,6 +34,13 @@ the decision.
                              NOTE: this output describes YOUR machine, not the
                              artifact. Summarise it in a public report rather
                              than pasting it raw.
+  --system-ownership <bundle>
+                             Report who owns the INSTALLED bundle and whether
+                             a less-privileged account could modify it. Use
+                             after installing. Ownership is deliberately NOT a
+                             baseline record: a mounted image reports the
+                             mounting user rather than the image's own value,
+                             so a baselined figure would be a reading artifact.
   -h, --help                 Show this message.
 
 <bundle> is a path to an .app (or any signed bundle) that is already on disk —
@@ -53,6 +61,9 @@ while [[ $# -gt 0 ]]; do
       BUNDLE="${1:-}"; shift || true ;;
     --system-persistence)
       MODE="syspersist"; shift
+      BUNDLE="${1:-}"; shift || true ;;
+    --system-ownership)
+      MODE="sysowner"; shift
       BUNDLE="${1:-}"; shift || true ;;
     --baseline)
       MODE="compare"; shift
@@ -221,6 +232,85 @@ if [[ "$MODE" == "syspersist" ]]; then
   echo "$INFO Enumerated from the system, not from documentation. A daemon whose"
   echo "  program lives outside the bundle is NOT covered by the baseline and"
   echo "  must be verified separately."
+  exit 0
+fi
+
+if [[ "$MODE" == "sysowner" ]]; then
+  echo "=================================================================="
+  echo " Installed-bundle ownership and writability (read-only)"
+  echo " Artifact: $BUNDLE"
+  echo "=================================================================="
+  echo
+
+  case "$BUNDLE" in
+    /Volumes/*)
+      echo "$STOP This path is on a mounted volume, so the answer is meaningless."
+      echo "  Disk images mount with 'noowners': every file reports the mounting"
+      echo "  user rather than the owner recorded in the image. Run this against"
+      echo "  the INSTALLED copy instead."
+      echo "=================================================================="
+      exit 2 ;;
+  esac
+
+  total=$(find "$BUNDLE" 2>/dev/null | wc -l | tr -d ' ')
+  nonroot=$(find "$BUNDLE" ! -user root 2>/dev/null | wc -l | tr -d ' ')
+  writable=$(find "$BUNDLE" \( -perm -g+w -o -perm -o+w \) 2>/dev/null | wc -l | tr -d ' ')
+  setid=$(find "$BUNDLE" \( -perm -4000 -o -perm -2000 \) 2>/dev/null | wc -l | tr -d ' ')
+
+  echo "--- Ownership -------------------------------------------------------"
+  echo "  bundle root : $(stat -f '%Su:%Sg  %Sp' "$BUNDLE" 2>/dev/null)"
+  echo "  files        : $total"
+  echo "  owner:group pairs present across the bundle:"
+  find "$BUNDLE" -exec stat -f '%Su:%Sg' {} + 2>/dev/null \
+    | sort | uniq -c | sort -rn | head -5 | sed 's/^/      /'
+  echo
+  echo "--- Writability by a less-privileged account ------------------------"
+  printf '  not owned by root      : %s\n' "$nonroot"
+  printf '  group- or world-writable: %s\n' "$writable"
+  printf '  setuid / setgid        : %s\n' "$setid"
+  [[ "$writable" -gt 0 ]] && find "$BUNDLE" \( -perm -g+w -o -perm -o+w \) 2>/dev/null \
+    | head -5 | sed "s|$BUNDLE/|      |"
+
+  # Ownership only becomes a privilege problem when the bundle carries code that
+  # runs with more authority than the account that can rewrite it.
+  sysext=$(find "$BUNDLE/Contents/Library/SystemExtensions" -maxdepth 1 -name '*.systemextension' 2>/dev/null | wc -l | tr -d ' ')
+  bdaemon=$(find "$BUNDLE/Contents/Library/LaunchDaemons" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+  smpriv=$(/usr/libexec/PlistBuddy -c 'Print :SMPrivilegedExecutables' \
+             "$BUNDLE/Contents/Info.plist" 2>/dev/null | grep -c '=' | tr -d ' ')
+  privileged=$(( sysext + bdaemon + smpriv ))
+
+  echo
+  echo "--- Privileged components this bundle carries -----------------------"
+  printf '  system extensions       : %s\n' "$sysext"
+  printf '  bundled LaunchDaemons   : %s\n' "$bdaemon"
+  printf '  SMPrivilegedExecutables : %s\n' "$smpriv"
+
+  exposed=0
+  [[ "$nonroot" -gt 0 || "$writable" -gt 0 || "$setid" -gt 0 ]] && exposed=1
+
+  echo
+  echo "--- What that combination means -------------------------------------"
+  if [[ "$privileged" -gt 0 && "$exposed" -eq 1 ]]; then
+    echo "$STOP This bundle carries privileged components AND can be modified by"
+    echo "  an account that is not root. Anything able to write here can alter"
+    echo "  code that runs with elevated privilege. Investigate before trusting"
+    echo "  this install."
+  elif [[ "$privileged" -gt 0 ]]; then
+    echo "$OK Privileged components are present, and the bundle is root-owned and"
+    echo "  not group/world-writable — so a non-root account cannot rewrite them."
+  elif [[ "$exposed" -eq 1 ]]; then
+    echo "$INFO Owned by a non-root account, but this bundle declares no privileged"
+    echo "  components. That is normal for a drag-installed user application and is"
+    echo "  not by itself a finding."
+  else
+    echo "$OK Root-owned, not writable by group or others, no setuid/setgid."
+  fi
+
+  echo
+  echo "=================================================================="
+  echo "$INFO This is SYSTEM STATE, not a baseline invariant, and it is not a"
+  echo "  verdict. Ownership cannot be baselined — see --help. Record the"
+  echo "  figures in the report; a human owns the decision."
   exit 0
 fi
 

@@ -155,20 +155,40 @@ authority**, **notarization**, **Gatekeeper verdict**, **code-directory flags**,
 **entitlements**, **bundle-declared persistence**, **privileged helpers**, the
 **component list**, and any **non-Apple linked libraries**.
 
-> 🔑 **Known schema gap — ownership and permissions are NOT recorded.** A bundle whose
-> owner changes from `root` to a local user account produces a clean **"no drift"**
-> result, because POSIX ownership is not part of a code signature and is not in the
-> baseline. This is not hypothetical: a real install silently transferred a security
-> tool's bundle to an unrelated local account while signature, notarization, Gatekeeper,
-> drift and byte-for-byte hashes all passed. **Check ownership by hand after any
-> install** until the schema is extended:
+> 🔑 **Ownership is deliberately NOT a baseline record — and that is not an oversight.**
+> A baseline answers *"is this the same artifact I audited?"*, so it may only contain
+> facts that **travel with the file**: hashes, signatures, Team IDs, entitlements. Those
+> are identical on any Mac. **Ownership does not travel with the file** — it is assigned
+> at install time, differs by install method, and a disk image mounted `noowners` reports
+> the *mounting user* rather than the value recorded in the image. The same image was
+> read as uid 502 by a normal user and uid 504 by root in a single session. Baselining
+> that would record a reading artifact and break every image-to-installed comparison.
 >
-> ```bash
-> find "/Applications/<App>.app" ! -user root | wc -l   # expect 0
-> ```
->
-> The lesson generalises beyond this script: a check can be perfectly correct and still
-> be mistaken for a complete one.
+> Ownership is therefore **system state**, checked after installing with
+> `--system-ownership` — the same reasoning that puts installed launchd jobs in
+> `--system-persistence` rather than in the baseline.
+
+### `--system-ownership` — can a lesser account rewrite privileged code?
+
+This is the check that would have caught a real regression: `sudo ditto` preserved a
+vendor's build-machine uid, handing a firewall's bundle to an unrelated local account
+while **signature, notarization, Gatekeeper, drift and byte-for-byte hashes all passed.**
+
+It reports owner/group/mode, counts non-root-owned and group/world-writable files and
+setuid/setgid binaries, then correlates that against the privileged components the
+bundle carries — because **non-root ownership only matters when the bundle holds code
+that runs with more authority than the account able to rewrite it.** A drag-installed
+user application owned by you is normal, and is reported without alarm.
+
+**Three limits, stated plainly:**
+
+1. **It reports state, not change.** It cannot know what the ownership *used to* be.
+   Record the figure in the report at install time so the next update can compare.
+2. **It counts privileged components the bundle *declares*.** Code installed outside
+   the bundle is invisible to it — run `--system-persistence` alongside it. **Neither
+   check alone is sufficient.**
+3. **It must be run against the installed copy.** Pointed at `/Volumes/…` it refuses
+   and explains why, rather than returning a confident wrong answer.
 
 ### Usage
 

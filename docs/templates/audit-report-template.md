@@ -122,6 +122,19 @@ The 15-minute budget is for the **decision**, not the **analysis**. Answer these
 | Persistence check (launch agents, login items, QL plugins, rc) | | |
 | Clean uninstall / snapshot reverted | | |
 
+## Post-install verification *(only if you installed it)*
+
+*These describe **your machine**, not the artifact, so they cannot be baselined — record the figures here instead, because that is the only way a future update can detect a change. Apply the [redaction convention](../../reports/README.md) before committing.*
+
+| Check | Result | Evidence / note |
+|-------|:------:|-----------------|
+| Installed copy matches the audited image | | drift check against the recorded baseline |
+| **Owner:group of the installed bundle** | | e.g. `root:wheel` — *record the value, not just "ok"* |
+| Non-root-owned / group- or world-writable / setuid files | | `--system-ownership` |
+| Privileged components declared **inside** the bundle | | system extensions, bundled LaunchDaemons, `SMPrivilegedExecutables` |
+| Privileged code installed **outside** the bundle | | `--system-persistence` — a daemon here is **not** covered by the baseline |
+| Staged copies match the audited binary; running process traced | | compare *every* staged copy, not just the first |
+
 ---
 
 ## Findings & open questions

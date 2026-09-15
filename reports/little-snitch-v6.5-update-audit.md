@@ -292,6 +292,22 @@ packet path) remains an open, accepted risk rather than a resolved one.
    structurally incapable of seeing. That is the tripwire failure mode in a new place:
    not a broken check, but a **correct check mistaken for a complete one**.
 
+   **Now addressed — but not by extending the schema, which would have been wrong.**
+   Ownership cannot be a baseline record: a baseline must contain only facts that travel
+   with the artifact, and ownership is assigned at install time. The same image was read
+   as uid 502 by a normal user and uid 504 by root during this session, so a baselined
+   figure would capture a *reading artifact* and would break every image-to-installed
+   comparison. A new `--system-ownership` mode instead reports installed ownership,
+   writability and setuid state, and weighs it against the privileged components the
+   bundle carries — because non-root ownership only matters when the bundle holds code
+   that runs with more authority than the account able to rewrite it.
+
+   **Three limits are stated rather than papered over:** it reports *state, not change*
+   (so the figure must be recorded here to be useful later); it counts only
+   **bundle-declared** privileged components, so it inherits finding 10's blind spot and
+   must be paired with `--system-persistence`; and it refuses to run against a mounted
+   image rather than returning a confident wrong answer.
+
 9. **A glob plus `head -1` silently compared the wrong file.** The first verification
    attempt hashed the *old* staged extension because `/Library/SystemExtensions/*/`
    matched two UUIDs and the script took the first. It reported a mismatch against a
@@ -337,10 +353,11 @@ outside it.
 - **Behaviour.** Nothing was run. A drift check cannot detect a malicious change that
   keeps the same Team ID, entitlements and component list — which a compromise of the
   vendor's own build pipeline would.
-- **POSIX ownership and permissions.** **Not in the baseline schema at all** — see
-  finding 8. A file whose owner changes from `root` to a local user produces a clean
-  "no drift" result. Until the schema is extended, ownership must be checked by hand
-  after any install.
+- **POSIX ownership and permissions.** Deliberately **not** a baseline record — see
+  finding 8 for why baselining it would be wrong rather than merely absent. Covered
+  instead by `--system-ownership`, which reports *state, not change*, and which counts
+  only **bundle-declared** privileged components. Neither it nor `--system-persistence`
+  is sufficient alone.
 - **The new NAT64 code.** Closed source; not reviewable, not exercised.
 - **The Software Update component.** Still the ongoing trust dependency identified in
   the 6.4.1 audit: it can replace this artifact with one that was never reviewed.
@@ -420,8 +437,7 @@ artifact already verified in this report.
 | Signature after install + `chown` | ✅ valid on disk, satisfies its Designated Requirement |
 | Drift vs audited 6.5 baseline | ✅ **No drift**, 10 components |
 | Notarization / Gatekeeper | ✅ stapled; accepted, `source=Notarized Developer ID` |
-| Ownership | ✅ `root:wheel`, **0** non-root-owned files *(after remediation — see finding 8)* |
-| System extension swapped | ✅ 6.4.1/7212 → **6.5/7303 `[activated enabled]`** |
+| Ownership | ✅ `root:wheel`, **0** non-root-owned files *(after remediation — see finding 8)* || Ownership vs privilege (`--system-ownership`) | ✅ | 599 files, all `root:wheel`; 0 group/world-writable; 0 setuid/setgid; **2 system extensions present and not rewritable by a non-root account** || System extension swapped | ✅ 6.4.1/7212 → **6.5/7303 `[activated enabled]`** |
 | Old extension | ✅ `[terminated waiting to uninstall on reboot]` |
 
 **The full chain, verified link by link:**
