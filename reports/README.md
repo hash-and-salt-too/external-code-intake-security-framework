@@ -20,7 +20,13 @@ One report per audited item lives here — the concrete output of running the fr
 |------|--------|---------|----------|--------|
 | 2026-08-06 | Micro Snitch | 1.6.1 | 🟡 Accept with restrictions *(contingent — Phase 5 verification pending)* | [micro-snitch-v1.6.1-intake.md](micro-snitch-v1.6.1-intake.md) |
 | 2026-08-05 | Little Snitch | 6.4.1 | 🟢 Accept | [little-snitch-v6.4.1-intake.md](little-snitch-v6.4.1-intake.md) |
-| 2026-07-29 | QLMarkdown | 1.5.0 | 🟡 Hold — needs a second look *(interim, pending Phase 5)* | [qlmarkdown-v1.5.0-intake.md](qlmarkdown-v1.5.0-intake.md) |
+| 2026-07-29 → 09-14 | QLMarkdown | 1.5.0 | 🔴 **Reject** | [qlmarkdown-v1.5.0-intake.md](qlmarkdown-v1.5.0-intake.md) |
 
 Fast-lane items are one-line entries in `intake-log.local.md` rather than rows here.
 *(`*.local.md` files are git-ignored — they stay on your machine.)*
+
+**Note on the QLMarkdown report:** it is published in **redacted** form. One finding is described
+only as *what it is and what it means*, never *how to reproduce it* — the redaction notice at the
+top of that report explains why. A separate, non-sensitive hardening suggestion from the same
+review was raised openly upstream as
+[sbarex/QLMarkdown#238](https://github.com/sbarex/QLMarkdown/issues/238).

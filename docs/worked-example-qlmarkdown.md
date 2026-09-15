@@ -2,7 +2,17 @@
 
 This applies the framework to **QLMarkdown**, a macOS Quick Look extension that renders Markdown file previews. It is written as a **ready-to-run scaffold**: the QLMarkdown-specific steps and exact commands are filled in, with **`‹fill in›` placeholders** for findings you'll record when you actually run the audit.
 
-> **Status: not yet executed.** Nothing here asserts audit *conclusions* about QLMarkdown — it tells you *what to check and how*. Treat every "expected" note as something to **verify against the current release**, not as a finding. Record results in a copy of the [report template](templates/audit-report-template.md).
+> **Status: executed.** This scaffold was run end to end against QLMarkdown **1.5.0** between
+> July and September 2026. The outcome was **REJECT** — see
+> [`../reports/qlmarkdown-v1.5.0-intake.md`](../reports/qlmarkdown-v1.5.0-intake.md). That report
+> is the public, partly **redacted** version: one finding is described only as what it is, never
+> how to reproduce it.
+>
+> **Two things this scaffold got wrong, kept here deliberately as a lesson.** It assumed the
+> Markdown-syntax image path was the *safe* one — running it showed that assumption was wrong.
+> And its Phase 3 search list covered source files but **not bundled content assets**, which
+> caused a real network endpoint to be missed entirely. Treat every "expected" note below as
+> something to **verify against the release in front of you**, never as a finding.
 
 > **Anti-typosquat reminder:** the project this refers to is **`sbarex/QLMarkdown`** on GitHub. Confirm that exact owner/repo before trusting anything — do not accept a lookalike.
 

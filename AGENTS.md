@@ -4,7 +4,7 @@ Orientation for any AI assistant working in this repo. Keep this file **lean and
 durable** — it loads into every session, so bloat costs focus and money. Update
 it when a *settled decision* changes.
 
-**Last reviewed:** 2026-08-05
+**Last reviewed:** 2026-09-15
 
 ## What this project is
 
@@ -47,8 +47,11 @@ install, build, or run the code under review.
 ## Repo map
 
 - `docs/` — the framework: scope, phases, checklists, templates, worked example.
-- `scripts/` — small, **read-only** helpers (build-feasibility preflight;
-  known-artifact drift check); never install, build, or run reviewed code.
+- `scripts/` — helpers. The top-level ones are **read-only** evidence gatherers
+  (build-feasibility preflight; known-artifact drift check). `scripts/phase5-kit/`
+  is the runtime probe kit used *inside an isolated test account* — it creates
+  decoys, snapshots and probe files, but never installs, builds, or runs the code
+  under review.
 - `tools/` — repo maintenance utilities that act only on **this repo's own
   files** (e.g. generating printable checklists); never touch reviewed code.
 - `reports/` — one decision record per audited item (fast-lane items get a
