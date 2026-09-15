@@ -16,16 +16,41 @@ Copy this file for each audit (e.g. `reports/qlmarkdown-v1.4.2.md`) and fill it 
 | **Repository** (`owner/repo` + URL) | |
 | **Exact version audited** (tag / commit hash) | |
 | **Artifact type** (from triage) | |
+| **Cost band** (A re-verify · B fast lane · C scheduled · D expensive) | |
 | **Install method** (source / pre-built / package mgr) | |
 | **Date of audit** | |
 | **Reviewer** (you; AI may assist with evidence) | |
 | **Overall risk rating** | Low / Medium / High |
-| **DECISION** | Accept · Accept with restrictions · Reject · Hold (needs a second look) |
+| **Cost of rejecting** *(what breaks if the answer is no?)* | e.g. "nothing — VS Code already renders Markdown" |
+| **DECISION A — the artifact** | Accept · Accept with restrictions · Reject · Hold (needs a second look) |
+| **DECISION B — the task** | Substitute · Work around · Stop+clear (audit ran) |
 | **Decision made by** (a human — not the AI) | |
 | **One-line rationale** | |
 | **Re-audit trigger** | e.g. "any new release," "if entitlements change" |
 
-> **Decision model:** **Accept** · **Accept with restrictions** (use only under limits you write down — never to wave through a risk you can't explain) · **Reject** (reviewed, not safe) · **Hold — needs a second look** (couldn't resolve something; use/sharing blocked until it is — keeps "I couldn't finish" separate from "it's bad"). Unresolved *high-impact* questions default to blocked (*fail closed*). Resolve a Hold via a safer alternative or a trustworthy community for personal work, or your organization's official channel for work-shared code — never post your organization's material publicly. The AI gathers evidence, but a **human owns the decision.** See [`../00-scope-and-boundaries.md`](../00-scope-and-boundaries.md).
+> **Two decisions, not one.** *Decision A* is about the **artifact** — is it safe? *Decision B* is about the **task you were doing when you hit it** — do you even need this? They are independent: an artifact can be a perfectly good **Accept** that you still choose not to install today. Ask B first; it is usually much cheaper. See [`../02-artifact-triage.md`](../02-artifact-triage.md).
+
+> **Decision model (the artifact):** **Accept** · **Accept with restrictions** (use only under limits you write down — never to wave through a risk you can't explain) · **Reject** (reviewed, not safe) · **Hold — needs a second look** (couldn't resolve something; use/sharing blocked until it is — keeps "I couldn't finish" separate from "it's bad"). Unresolved *high-impact* questions default to blocked (*fail closed*). Resolve a Hold via a safer alternative or a trustworthy community for personal work, or your organization's official channel for work-shared code — never post your organization's material publicly. The AI gathers evidence, but a **human owns the decision.** See [`../00-scope-and-boundaries.md`](../00-scope-and-boundaries.md).
+
+> 🛑 **The path that is not on this list: "install it now, audit it later."** That is not a deferral — it is an **Accept with no evidence**, and it inverts the rule that the gate is on execution. If you ever knowingly choose it, do not record it here: log it in the **`Accepted WITHOUT review`** register so it stays visible until it is resolved.
+
+---
+
+## Step −1 — Disposition (do this FIRST, before any analysis)
+
+The 15-minute budget is for the **decision**, not the **analysis**. Answer these before opening the artifact.
+
+- **G0 — Do I already have a trusted tool that does this job?** *(target: 60 seconds)*
+  → If yes, the answer is **Substitute**. Stop. No artifact decision is needed, because the artifact never comes in.
+- **G1 — What is it, and what will this cost?** Artifact type, install method, privilege at run time, **does a baseline already exist?**, **does an alternative exist?** → gives the **cost band**.
+- **G2 — Compare the forecast to the time I actually have.** → **Substitute** · **Work around** · **Stop+clear**.
+
+*Record the answers even when the result is "stop here" — a 60-second "no" is a real decision and belongs in the log.*
+
+- G0 answer (trusted tool already available?): 
+- G1 cost band & why: 
+- G2 disposition chosen & why: 
+- Time spent reaching the disposition: 
 
 ---
 
@@ -103,6 +128,10 @@ Copy this file for each audit (e.g. `reports/qlmarkdown-v1.4.2.md`) and fill it 
 1. 
 2. 
 3. 
+
+## What this audit did **NOT** check
+*Mandatory. A script cannot state what it failed to cover — you must. Name the ceiling of this review honestly: unreviewed code, untested behaviour, phases skipped and why.*
+- 
 
 ## Dealbreakers encountered (if any)
 - 

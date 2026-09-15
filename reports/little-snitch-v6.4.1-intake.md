@@ -120,7 +120,44 @@ identity carry the full weight of the decision.
 | Non-Apple linked libraries | ✅ | **Zero**, across main app, network extension and Endpoint Security extension. |
 | Mach-O strings — network destinations | ✅ | All HTTPS, no IP literals, no third-party telemetry. `sw-update.obdev.at/software-update.php` (updates) · `blocklists.obdev.at/…/featured-blocklists.json` · `obdev.at/go/…` (help/purchase deep links) · DoH resolvers Cloudflare, Google, `dns10.quad9.net`, `unfiltered.joindns4.eu`. The last two **exactly match the 6.4 release notes** ("unfiltered Quad9 endpoints", "replaced with DNS4EU") — published documentation corroborated against the binary. **The Endpoint Security extension contains no URLs at all.** |
 | Mach-O strings — suspicious patterns | ✅ *(with notes)* | No `.ssh/`, `id_rsa`, `base64 -d`, `curl -s` or `osascript` in any component. `/bin/sh` and `/bin/bash` appear in all binaries — **treated as noise**, since these strings are present in nearly every Swift/ObjC binary via runtime and Foundation internals. |
-| Persistence mechanisms | ✅ *(disclosed & expected)* | `/Library/LaunchDaemons/at.obdev.littlesnitchd.plist`, `/Library/LaunchAgents/at.obdev.LittleSnitchHelper.plist`, `/Library/LaunchAgents/at.obdev.LittleSnitchUIAgent.plist`. Functionally necessary — a firewall that did not persist could not filter at boot — and in standard, inspectable locations rather than hidden ones. *`at.obdev.littlesnitchd.plist` is the exact file involved in CVE-2017-2675.* |
+| Persistence mechanisms | ✅ *(disclosed & expected)* | **Corrected 2026-09-15 — see note below.** Two launchd jobs, both in standard, inspectable locations: `/Library/LaunchDaemons/at.obdev.littlesnitch.daemon.plist` (label `at.obdev.littlesnitch.daemon`, Program → `/Library/Application Support/Objective Development/Little Snitch/Components/at.obdev.littlesnitch.daemon.bundle/Contents/MacOS/at.obdev.littlesnitch.daemon`) and `/Library/LaunchAgents/at.obdev.littlesnitch.agent.plist` (label `at.obdev.littlesnitch.agent`, Program → `/Applications/Little Snitch.app/Contents/Components/Little Snitch Agent.app/Contents/MacOS/Little Snitch Agent`). Functionally necessary — a firewall that did not persist could not filter at boot. The app bundle itself declares **no** `SMAppService` launchd plists (`Contents/Library/LaunchAgents|LaunchDaemons` are absent); persistence is written to `/Library` at install time instead. |
+
+> ### ⚠️ Correction — persistence row, 2026-09-15
+>
+> **The original version of this row was wrong.** It listed three files:
+> `at.obdev.littlesnitchd.plist`, `at.obdev.LittleSnitchHelper.plist` and
+> `at.obdev.LittleSnitchUIAgent.plist`, and added that *"`at.obdev.littlesnitchd.plist`
+> is the exact file involved in CVE-2017-2675."*
+>
+> **None of those three filenames exist on the audited system.** A search of `/Library`,
+> `/System/Library` and `~/Library` returns no match for any of them. The actual
+> installed persistence is the **two** files recorded above.
+>
+> **How the error happened, and why it matters.** The three names appear to be
+> **3.x/4.x-era paths drawn from the vendor's CVE history** — the same history summarised
+> in the Phase 1 "Known vulnerability history" row — rather than from observation of the
+> installed 6.4.1. A *historical* detail was imported into a *current-state inventory*
+> and presented with the same ✅ confidence as directly observed evidence. The CVE-2017-2675
+> attribution may well be accurate about Little Snitch 3.x; it is simply not a statement
+> about anything present on this machine.
+>
+> This is the same defect class as QLMarkdown finding #23 (documentation claiming one
+> thing while the shipped artifact does another) — with the framework's own report as the
+> inaccurate document this time. It was caught only because a **later, unrelated task**
+> (quitting the menu-bar agent before an update) required the real path.
+>
+> **Process lessons recorded rather than quietly fixed:**
+> 1. **Persistence paths must be enumerated from the system, never recalled or inferred.**
+>    Now automated — see the `persistence` records in the baseline schema.
+> 2. **Vendor history and observed state must not share a results table** without an
+>    explicit marker saying which is which.
+> 3. **A ✅ should mean "I ran a command and this was the output."** This row earned a ✅
+>    without that.
+>
+> The **decision is unaffected**: the persistence design is still disclosed, still
+> functionally necessary, and still in standard inspectable locations. What changed is the
+> accuracy of the evidence, not its weight. The original text is preserved in this note so
+> the error stays auditable rather than disappearing from the record.
 | `.pkg` / installer scripts inspected | ➖ | **No `.pkg` exists.** The DMG contains a drag-install app that installs its own extensions at runtime behind a System Settings approval. **There are therefore no pre/postinstall scripts** — the classic elevated-script vector is absent by design. |
 | Image handled without executing | ✅ | Mounted `hdiutil attach -readonly -nobrowse -noautoopen`; all internal CRC32s verified on attach; mount flags `read-only, nodev, nosuid, noowners, quarantine, nobrowse`; detached cleanly. Nothing was installed, launched or executed at any point. |
 

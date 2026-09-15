@@ -59,8 +59,10 @@ Match the depth of your audit to the **risk**. Risk goes up when the code is mor
 
 **Two-speed approach:**
 
-1. **Quick Triage (10–15 min)** — a fast go/no-go using [`checklists/quick-triage.md`](checklists/quick-triage.md). Most sketchy things get rejected here. If it passes *and* the risk is low, you may stop.
-2. **Full Audit** — for anything that will run with real privileges on your machine (this includes QLMarkdown), work through all five phases and record the result using [`templates/audit-report-template.md`](templates/audit-report-template.md).
+1. **Triage (≈15 min, usually much less)** — [`02-artifact-triage.md`](02-artifact-triage.md). Ask **"do I already have a trusted tool that does this job?"** first, then forecast what an audit would cost. **Most intakes should end here**, with *Substitute* or *Work around* — no artifact verdict needed, because the artifact never comes in.
+2. **Full Audit** — only for items you decided to *Stop+clear*. Work through the phases the artifact type demands and record the result using [`templates/audit-report-template.md`](templates/audit-report-template.md).
+
+> **The 15 minutes is a budget for the DECISION, not the ANALYSIS.** A high-risk artifact cannot be responsibly cleared in 15 minutes — one measured example took **4h09m**. So triage buys you a decision about *what to do*; when a full audit really is needed, it becomes **scheduled work** rather than an interruption.
 
 > **Golden rule:** If at any point you can't answer a question and can't find the evidence, treat that gap as a *finding*, not a pass. Unknown = risk.
 
@@ -72,8 +74,14 @@ Match the depth of your audit to the **risk**. Risk goes up when the code is mor
 SCOPE   Is this in scope, and how much review does it need?
         → 00-scope-and-boundaries.md  (external code? risk tier? decision model)
 
-STEP 0  Triage: what am I actually bringing in?   → 02-artifact-triage.md
-        (This decides which checks below matter most.)
+TRIAGE  Do I even need this, and what will it cost?   → 02-artifact-triage.md
+        G0 do I already have a trusted tool for this job?  -> Substitute, STOP
+        G1 what type is it, and what cost band?
+        G2 Substitute / Work around / Stop+clear
+        (Most intakes end here. Only Stop+clear continues.)
+
+  ⤷ If it's a NEW VERSION of something already accepted, stop and go to
+    05-update-audit.md instead - that path is far cheaper.
 
 PHASE 1 Provenance & reputation  → phases/phase-1-provenance.md
         Who made it? Is the project real, active, and trustworthy?
@@ -90,8 +98,9 @@ PHASE 4 Binary / artifact check  → phases/phase-4-binary-artifact.md
 PHASE 5 Runtime / sandbox test   → phases/phase-5-runtime-sandbox.md
         Watch it run in isolation before trusting your real machine.
 
-DECIDE  Weigh findings, make a go/no-go, write it down.
-        → templates/audit-report-template.md
+DECIDE  Two decisions: the ARTIFACT (accept/reject) and the TASK (what you do
+        next). Write both down.  → templates/audit-report-template.md
+        On Accept, record a baseline so the next update is cheap.
 ```
 
 ---
@@ -102,11 +111,12 @@ DECIDE  Weigh findings, make a go/no-go, write it down.
 - [`00-scope-and-boundaries.md`](00-scope-and-boundaries.md) — **read first.** What this framework does and doesn't cover, what counts as "external code" (including AI-suggested packages), how much effort a decision deserves, and the decision model.
 - [`glossary.md`](glossary.md) — plain-language definitions of every term used here.
 - [`01-threat-model-and-principles.md`](01-threat-model-and-principles.md) — what you are defending against, and why.
-- [`02-artifact-triage.md`](02-artifact-triage.md) — **start every audit here.** Identify the type of thing you're bringing in and get routed to the right checks. *(This is the answer to "does the type of code matter?" — yes, a lot.)*
+- [`02-artifact-triage.md`](02-artifact-triage.md) — **start every intake here.** Decide whether you need the thing at all, forecast what auditing it would cost, and choose a disposition. *(This is also the answer to "does the type of code matter?" — yes, a lot, and it is the main driver of cost.)*
 - [`03-install-methods-explained.md`](03-install-methods-explained.md) — beginner explainer: "build from source" vs. "pre-built release" vs. "package manager," and why it matters for safety.
 
 **The audit itself:**
 - [`04-audit-methodology.md`](04-audit-methodology.md) — how the five phases fit together.
+- [`05-update-audit.md`](05-update-audit.md) — **a new version of something you already accepted.** Cheap re-verification against a stored baseline; not a re-audit.
 - [`phases/phase-1-provenance.md`](phases/phase-1-provenance.md)
 - [`phases/phase-2-supply-chain.md`](phases/phase-2-supply-chain.md)
 - [`phases/phase-3-source-review.md`](phases/phase-3-source-review.md)
