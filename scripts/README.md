@@ -192,6 +192,95 @@ not build or execute external code.
 
 ---
 
+## `phase1-provenance.sh` — is this the real project, and is it alive?
+
+**The problem it solves.** Phase 1 is the cheapest phase and it rejects most bad
+downloads before any effort is spent. Done by hand it took **51 minutes**, of
+which roughly **35** was mechanical lookup — counting releases, reading dates,
+checking for a `SECURITY.md`, resolving a tag to a commit.
+
+It implements the deterministic half of
+[`../docs/phases/phase-1-provenance.md`](../docs/phases/phase-1-provenance.md).
+
+### `--online` is required, not assumed
+
+Unlike the other collectors this one has **no offline half at all** — every
+question is remote. So rather than silently needing the network, running without
+`--online` prints the exact requests it *would* make, contacts nothing, and exits
+2. No evidence gathered is not a clean result.
+
+```bash
+scripts/phase1-provenance.sh sbarex/QLMarkdown --online --tag 1.5.0
+```
+
+`gh` is optional and is used **only to borrow a token**, never as a second way of
+making the request. One request path cannot disagree with itself; two can.
+
+### It refuses to invent findings when it cannot see
+
+A broken or rate-limited API makes every project look like it has no releases, no
+contributors and no advisories. Two controls run before anything is reported:
+
+| Control | Proves |
+|---|---|
+| A known repository reads back correctly | the path works and responses parse |
+| A repository that cannot exist returns **404** | *absent* is distinguishable from *broken* |
+
+The negative control is the sharper one. An endpoint that answers `200` to
+everything would make "not found" meaningless — and that case is covered by a
+test, not just hoped for. If either control fails the script stops rather than
+printing findings that cannot be told apart from a bad connection.
+
+### Two places a naive script is confidently wrong
+
+- **An annotated tag does not point at a commit.** It points at a *tag object*.
+  Reporting that SHA as "the commit" gives the reviewer the wrong value to paste
+  into a clone command. This dereferences it and shows both. Verified against an
+  independent `git ls-remote 'refs/tags/X^{}'` oracle: for `git/git v2.39.5` the
+  tag object is `a622a3b3…` and the commit is `cc7d11c1…`.
+- **A missing `fork` field must not read as "not a fork."** The script requires
+  the field to be *present*, not merely falsy, so an API change or a bad parse
+  reports *undetermined* instead of quietly blessing every fork as an original.
+
+### What it will not do
+
+The judgements Phase 1 actually turns on are printed as open questions, not
+answered:
+
+> how you arrived here, and whether that path was trustworthy · whether this
+> maintainer reads as a careful engineer · whether a missing `SECURITY.md` is
+> acceptable for **this** project · whether to pin the newest release or a
+> longer-exposed older one
+
+That last one matters: **a script would answer "newest" and be wrong** for the
+reasons this framework exists.
+
+### What it tells you
+
+| Exit | Meaning |
+|:----:|---------|
+| `0` | Evidence collected |
+| `1` | The repository does not exist at that `owner/repo` — you cannot audit what is not there, and a near-miss name is what a typosquat relies on |
+| `2` | Inconclusive: no `--online`, bad arguments, rate limiting, or a failed calibration |
+
+### `tests/phase1-provenance-tests.sh` — 21 assertions, all offline
+
+The only sockets touched are a closed local port and a local stub server. The
+load-bearing assertions prove the script *refuses* to report: with an unreachable
+API it never says a repository is missing, never prints a contributor count, and
+never claims a project is not a fork.
+
+> **Stated coverage limit.** Response-shape logic — fork-field handling,
+> annotated-tag dereferencing, release-note scanning — is **not** unit-tested.
+> Mocking it needs a server that serves both `/repos/o/n` and
+> `/repos/o/n/releases`, which a static file server cannot do. That logic is
+> covered instead by a live smoke test against a known oracle: run against this
+> repo's own worked example it independently reproduces eight facts a human
+> recorded by hand, including the exact pinned commit
+> `b59df6ac…` from [`../reports/qlmarkdown-v1.5.0-intake.md`](../reports/qlmarkdown-v1.5.0-intake.md).
+
+---
+
 ## `phase2-supplychain.sh` — what does it pull in, and what runs at build time?
 
 **The problem it solves.** Phase 2 is where the real defect hid in this repo's

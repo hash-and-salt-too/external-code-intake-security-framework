@@ -326,33 +326,8 @@ if [[ "$PROBE_PINS" -eq 1 ]]; then
 fi
 
 # --- Advisory lookups (network or injected, opt-in) ------------------------
-# Repointable at an internal mirror or proxy, which also means a run can be
-# aimed somewhere deliberately unreachable to prove the failure path reports
-# INCONCLUSIVE rather than a clean zero.
-OSV_URL="${ECISF_OSV_URL:-https://api.osv.dev/v1/query}"
-# Overridable so calibration can be repointed without editing code if the
-# reference advisory ever changes upstream.
-OSV_CAL_ECO="${ECISF_OSV_CAL_ECO:-npm}"
-OSV_CAL_NAME="${ECISF_OSV_CAL_NAME:-lodash}"
-OSV_CAL_BAD="${ECISF_OSV_CAL_BAD:-4.17.15}"
-OSV_CAL_GOOD="${ECISF_OSV_CAL_GOOD:-4.17.21}"
-
-osv_query() { # payload outfile -> 0 ok, 2 inconclusive
-  local payload="$1" out="$2" code rc
-  code=$(curl -sS --max-time 25 -o "$out" -w '%{http_code}' \
-         -H 'Content-Type: application/json' \
-         --data-binary "$payload" "$OSV_URL" 2>/dev/null)
-  rc=$?
-  if [[ "$rc" -ne 0 ]]; then
-    echo "        query FAILED (curl exit $rc). This is not zero advisories."
-    return 2
-  fi
-  if [[ "$code" != "200" ]]; then
-    echo "        query returned HTTP $code. This is not zero advisories."
-    return 2
-  fi
-  return 0
-}
+# Querying and calibration live in lib/advisory-query.sh, so Phase 1 and Phase 2
+# cannot end up asking the same question two slightly different ways.
 
 if [[ "$ONLINE" -eq 1 || -n "$OSV_JSON" ]]; then
   echo
@@ -361,25 +336,9 @@ fi
 
 CALIBRATED=0
 if [[ "$ONLINE" -eq 1 ]]; then
-  echo "  Calibration — can this query path see a KNOWN advisory?"
-  cal_pos=""; cal_neg=""
-  if osv_query "{\"package\":{\"name\":\"$OSV_CAL_NAME\",\"ecosystem\":\"$OSV_CAL_ECO\"},\"version\":\"$OSV_CAL_BAD\"}" "$WORK/cal-bad.json" \
-     && advisory_classify "$WORK/cal-bad.json" "$WORK/cal-bad.facts" 2>/dev/null; then
-    cal_pos=$(advisory_fact record-total "$WORK/cal-bad.facts")
-  fi
-  if osv_query "{\"package\":{\"name\":\"$OSV_CAL_NAME\",\"ecosystem\":\"$OSV_CAL_ECO\"},\"version\":\"$OSV_CAL_GOOD\"}" "$WORK/cal-good.json" \
-     && advisory_classify "$WORK/cal-good.json" "$WORK/cal-good.facts" 2>/dev/null; then
-    cal_neg=$(advisory_fact record-total "$WORK/cal-good.facts")
-  fi
-  echo "      positive control $OSV_CAL_NAME@$OSV_CAL_BAD  -> ${cal_pos:-<no answer>} record(s)"
-  echo "      negative control $OSV_CAL_NAME@$OSV_CAL_GOOD -> ${cal_neg:-<no answer>} record(s)"
-  if [[ -n "$cal_pos" && -n "$cal_neg" && "$cal_pos" -gt 0 && "$cal_neg" -lt "$cal_pos" ]]; then
-    echo "  $OK  calibration PASSED: the path sees a known positive, and the"
-    echo "      version filter distinguishes a fixed release from a vulnerable one."
+  if advisory_osv_calibrate "$WORK"; then
     CALIBRATED=1
   else
-    echo "  $STOP calibration FAILED. No advisory result below can be believed,"
-    echo "      because a broken query and a clean dependency both return zero."
     INCONCLUSIVE=1
   fi
 fi
@@ -404,7 +363,7 @@ if [[ "$ONLINE" -eq 1 && "$CALIBRATED" -eq 1 && -s "$WORK/pins.txt" ]]; then
   while IFS="$(printf '\t')" read -r p sha url; do
     [[ -n "$sha" ]] || continue
     echo "    $p  ${sha}"
-    if osv_query "{\"commit\":\"$sha\"}" "$WORK/pin.json" \
+    if advisory_osv_query "{\"commit\":\"$sha\"}" "$WORK/pin.json" \
        && advisory_classify "$WORK/pin.json" "$WORK/pin.facts" 2>/dev/null; then
       advisory_summary "$WORK/pin.facts" "$p" | sed 's/^/    /'
     else

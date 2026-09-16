@@ -113,6 +113,69 @@ advisory_classify() {
 
 advisory_fact() { awk -F'\t' -v k="$1" '$1==k {print $2}' "$2"; }
 
+# Querying lives here rather than in a phase script so that Phase 1 and Phase 2
+# cannot end up asking the same question two slightly different ways.
+# Repointable at an internal mirror, which also lets the failure path be
+# exercised without any external traffic.
+ADVISORY_OSV_URL="${ECISF_OSV_URL:-https://api.osv.dev/v1/query}"
+
+advisory_osv_query() { # payload outfile -> 0 ok, 2 inconclusive
+  local payload="$1" out="$2" code rc
+  command -v curl >/dev/null 2>&1 || { echo "        curl is missing; no query was made."; return 2; }
+  code=$(curl -sS --max-time 25 -o "$out" -w '%{http_code}' \
+         -H 'Content-Type: application/json' \
+         --data-binary "$payload" "$ADVISORY_OSV_URL" 2>/dev/null)
+  rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    echo "        query FAILED (curl exit $rc). This is not zero advisories."
+    return 2
+  fi
+  if [[ "$code" != "200" ]]; then
+    echo "        query returned HTTP $code. This is not zero advisories."
+    return 2
+  fi
+  return 0
+}
+
+# Overridable so the reference can be repointed if the advisory it relies on
+# ever changes upstream.
+ADVISORY_CAL_ECO="${ECISF_OSV_CAL_ECO:-npm}"
+ADVISORY_CAL_NAME="${ECISF_OSV_CAL_NAME:-lodash}"
+ADVISORY_CAL_BAD="${ECISF_OSV_CAL_BAD:-4.17.15}"
+ADVISORY_CAL_GOOD="${ECISF_OSV_CAL_GOOD:-4.17.21}"
+
+# Proves the query path can SEE a known positive before any zero is believed,
+# and that the version filter discriminates rather than answering the same way
+# regardless of input. The negative control is deliberately RELATIVE: a fixed
+# release still carries records, so "must return zero" would fail on a healthy
+# database and pass on a broken one.
+advisory_osv_calibrate() { # workdir -> 0 passed, 2 failed
+  local w="$1" pos="" neg=""
+  echo "  Calibration — can this query path see a KNOWN advisory?"
+  if advisory_osv_query \
+       "{\"package\":{\"name\":\"$ADVISORY_CAL_NAME\",\"ecosystem\":\"$ADVISORY_CAL_ECO\"},\"version\":\"$ADVISORY_CAL_BAD\"}" \
+       "$w/cal-bad.json" \
+     && advisory_classify "$w/cal-bad.json" "$w/cal-bad.facts" 2>/dev/null; then
+    pos=$(advisory_fact record-total "$w/cal-bad.facts")
+  fi
+  if advisory_osv_query \
+       "{\"package\":{\"name\":\"$ADVISORY_CAL_NAME\",\"ecosystem\":\"$ADVISORY_CAL_ECO\"},\"version\":\"$ADVISORY_CAL_GOOD\"}" \
+       "$w/cal-good.json" \
+     && advisory_classify "$w/cal-good.json" "$w/cal-good.facts" 2>/dev/null; then
+    neg=$(advisory_fact record-total "$w/cal-good.facts")
+  fi
+  echo "      positive control $ADVISORY_CAL_NAME@$ADVISORY_CAL_BAD  -> ${pos:-<no answer>} record(s)"
+  echo "      negative control $ADVISORY_CAL_NAME@$ADVISORY_CAL_GOOD -> ${neg:-<no answer>} record(s)"
+  if [[ -n "$pos" && -n "$neg" && "$pos" -gt 0 && "$neg" -lt "$pos" ]]; then
+    echo "  ✅  calibration PASSED: the path sees a known positive, and the"
+    echo "      version filter distinguishes a fixed release from a vulnerable one."
+    return 0
+  fi
+  echo "  🛑 calibration FAILED. No advisory result below can be believed,"
+  echo "      because a broken query and a clean dependency both return zero."
+  return 2
+}
+
 # Prints the standard evidence block. Shared so Phase 1 and Phase 2 cannot
 # describe the same numbers with different wording.
 advisory_summary() {
