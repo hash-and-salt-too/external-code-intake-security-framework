@@ -21,7 +21,7 @@ When you trust one project, you inherit trust in **everything it pulls in** and 
 
 Look for **manifest files** (the "ingredients list") in the repo. Which one exists tells you the ecosystem:
 
-| File | Ecosystem | 
+| File | Ecosystem |
 |------|-----------|
 | `package.json` (+ `package-lock.json` / `yarn.lock`) | Node.js / npm |
 | `requirements.txt`, `pyproject.toml`, `Pipfile` (+ `.lock`) | Python |
