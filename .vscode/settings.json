@@ -1,0 +1,28 @@
+{
+  // Terminal commands an assistant proposes are auto-approved by default.
+  // These rules force an explicit prompt for the shapes that can destroy data.
+  // Deliberately NARROW: a long deny-list trains you to click Approve without
+  // reading, which is worse than no list at all.
+  //
+  // `false` = always ask. Read-only inspection (codesign, otool, find, grep)
+  // stays auto-approved, which is most of what this repo does.
+  "chat.tools.terminal.autoApprove": {
+    "/\\brm\\b/": false,
+    "/\\bmv\\b/": false,
+    "/\\bchmod\\b/": false,
+    "/\\bchown\\b/": false,
+    "/\\bsudo\\b/": false,
+    "/\\bdd\\b/": false,
+    "/\\b(cp|ditto|rsync)\\b/": false,
+    "/>\\s*\\/(Applications|Users|Library|System)\\//": false,
+    "/\\b(launchctl|systemextensionsctl|installer|pkgutil --expand)\\b/": false,
+    "/\\bxattr\\s+-d\\b/": false,
+    "/\\bgit\\s+(push|reset --hard|clean)\\b/": false
+  },
+
+  // Ask before a terminal command writes to a file the agent did not create.
+  "chat.tools.terminal.blockDetectedFileWrites": true,
+
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true
+}

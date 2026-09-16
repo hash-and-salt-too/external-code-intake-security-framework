@@ -52,7 +52,7 @@ ls -la "$HOME/Library/Group Containers/group.org.sbarex.qlmarkdown/js/" \
     >> "$OUT/sbarex-container.txt" 2>&1
 ls -la "$HOME/Applications/" > "$OUT/applications-folder.txt" 2>&1
 cp "$HOME/probe/canaries.txt" "$OUT/canaries.txt" 2>/dev/null
-rm -rf "$OUT/baseline" "$OUT/after" 2>/dev/null
+rm -rf "$OUT/baseline" "$OUT/after" 2>/dev/null   # ecisf-allow: $OUT is the hardcoded kit root, never user input
 cp -R "$BASE" "$OUT/baseline" 2>/dev/null
 cp -R "$AFTER" "$OUT/after" 2>/dev/null
 

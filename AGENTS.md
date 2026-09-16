@@ -80,6 +80,15 @@ one. Write commands a tired reader can safely approve.
   and `printf '%s' "$(basename x)" "$?"` reports *basename's* — both have
   already produced false "verified, exit 0" results in this repo.
 
+These are enforced, not merely written down. `.vscode/settings.json` forces an
+approval prompt for destructive shell shapes; `.githooks/pre-commit` refuses to
+commit them. **Enable the hook once per clone — a fresh clone is unprotected
+until you do:**
+
+```
+git config core.hooksPath .githooks
+```
+
 ## Repo map
 
 - `docs/` — the framework: scope, phases, checklists, templates, worked example.

@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# ECISF pre-commit guard.
+#
+# Blocks the patterns that put the MAINTAINER'S OWN machine at risk when they
+# get baked into a committed script. The terminal deny-list in
+# .vscode/settings.json covers ad-hoc commands; this covers the ones that will
+# be run again later without a second thought.
+#
+# Deliberately four checks, not forty. A noisy hook gets bypassed, and a
+# bypassed hook protects nothing.
+#
+# To allow a line on purpose, append a marker explaining why:
+#     rm -rf "$HOME/probe"    # ecisf-allow: isolation account, see 01-setup.sh
+#
+# Install (once per clone):  git config core.hooksPath .githooks
+set -uo pipefail
+
+FAIL=0
+# With arguments it checks those files, so the hook can be run over the whole
+# repo or from CI without staging anything.
+if [[ $# -gt 0 ]]; then
+  STAGED="$*"
+else
+  STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.sh$' || true)
+fi
+[[ -z "$STAGED" ]] && exit 0
+
+report() { # file line rule detail
+  printf '  %s:%s\n    %s\n    %s\n' "$1" "$2" "$3" "$4"
+  FAIL=1
+}
+
+for f in $STAGED; do
+  [[ -f "$f" ]] || continue
+  while IFS=: read -r ln text; do
+    [[ -z "${ln:-}" ]] && continue
+    case "$text" in *'# ecisf-allow:'*) continue ;; esac
+    stripped="${text#"${text%%[![:space:]]*}"}"
+    case "$stripped" in '#'*) continue ;; esac
+
+    # 1. rm -r with a variable in the path, outside the sanctioned
+    #    mktemp-plus-EXIT-trap idiom.
+    if printf '%s' "$text" | grep -qE 'rm[[:space:]]+-[a-zA-Z]*[rR]' \
+       && printf '%s' "$text" | grep -q '\$' \
+       && ! printf '%s' "$text" | grep -q 'trap '; then
+      report "$f" "$ln" "rm -r with a variable in the path" \
+        "Use a literal path under scratch/, or mktemp -d + trap ... EXIT."
+    fi
+
+    # 2. Writing into the user's installed applications.
+    if printf '%s' "$text" | grep -qE '(cp|ditto|rsync|mv|install)[^|]*[[:space:]]/Applications/' \
+       || printf '%s' "$text" | grep -qE '>[[:space:]]*"?/Applications/'; then
+      report "$f" "$ln" "writes into /Applications" \
+        "Inspect in place. Copy into scratch/ if a fixture is needed."
+    fi
+
+    # 3. /tmp as scratch: leftovers accumulate where nobody looks.
+    if printf '%s' "$text" | grep -qE '(^|[^A-Za-z0-9_])/tmp/'; then
+      report "$f" "$ln" "uses /tmp as scratch" \
+        "Use scratch/ (git-ignored) or mktemp -d so cleanup is automatic."
+    fi
+
+    # 4. Auto-selecting a subject from installed apps. This is how a test
+    #    ended up examining a password manager.
+    if printf '%s' "$text" | grep -qE '/Applications/\*'; then
+      report "$f" "$ln" "auto-selects from installed applications" \
+        "Require an explicit path, or justify with # ecisf-allow:."
+    fi
+  done < <(grep -nE '.' "$f" 2>/dev/null)
+done
+
+if [[ "$FAIL" -ne 0 ]]; then
+  echo
+  echo "🛑 pre-commit: refusing this commit."
+  echo "   These patterns have already cost real time or real risk in this repo."
+  echo "   Fix them, or annotate the line with '# ecisf-allow: <reason>' so the"
+  echo "   exception is reviewable instead of invisible."
+  echo
+  exit 1
+fi
+exit 0

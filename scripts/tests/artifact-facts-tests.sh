@@ -37,42 +37,35 @@ assert_eq() { # name expected actual
 
 # --- pick a subject -------------------------------------------------------
 # No hardcoded app: this has to keep working on a different machine. But
-# "first match in /Applications" is not a safe rule either — it selected a
-# password manager's Safari extension, purely because a digit sorts before
-# letters. Nothing here reads user data, and the subject bundle is only ever
-# read, never written. Even so, credential and security tooling is skipped:
-# a test has no business rummaging through it, and being surprised by the
-# subject is a good reason to distrust the result.
-SENSITIVE_RE='1password|bitwarden|keeper|lastpass|dashlane|enpass|strongbox|proton|nordpass|authenticator|yubi|keychain|wallet|vpn|banking|gnupg|gpg|tor browser'
-
-pick_app() {
-  local a team ents
-  for a in "$@"; do
-    [[ -d "$a" ]] || continue
-    printf '%s' "$(basename "$a")" | grep -qiE "$SENSITIVE_RE" && continue
-    team=$(codesign -dv --verbose=4 "$a" 2>&1 | sed -n 's/^TeamIdentifier=//p' | head -1)
-    [[ -n "$team" && "$team" != "not set" ]] || continue
-    ents=$(codesign -d --entitlements - --xml "$a" 2>/dev/null | plutil -p - 2>/dev/null | grep -c '=>')
-    [[ "${ents:-0}" -ge 2 ]] || continue
-    printf '%s\n' "$a"; return 0
-  done
-  return 1
-}
+# "first match in /Applications" selected a password manager's Safari
+# extension, purely because a digit sorts before letters. A deny-list of
+# sensitive names was the first fix, but a deny-list is never complete — it
+# only excludes what someone thought of. So nothing here scans your
+# applications at all: you nominate the subject once, explicitly.
+SUBJECT_FILE="$SCRIPT_DIR/../scratch/test-subject.txt"
 
 APP="${1:-}"
-AUTO=0
-if [[ -z "$APP" ]]; then
-  AUTO=1
-  APP=$(pick_app /Applications/*.app) || true
+if [[ -z "$APP" && -f "$SUBJECT_FILE" ]]; then
+  APP=$(grep -v '^[[:space:]]*#' "$SUBJECT_FILE" 2>/dev/null | grep . | head -1)
 fi
 if [[ -z "$APP" || ! -d "$APP" ]]; then
-  echo "SKIP ALL: no signed third-party .app with entitlements found."
-  echo "  These tests calibrate against a REAL signed bundle on purpose."
-  echo "  Pass one explicitly:  $0 /Applications/Some.app"
+  echo "No subject given."
+  echo
+  echo "  These tests calibrate against a REAL signed bundle, so they need one"
+  echo "  you choose. They never pick for you — that is how an earlier version"
+  echo "  ended up examining a password manager."
+  echo
+  echo "  Pick something you would not mind a test reading: a small, signed,"
+  echo "  third-party app with entitlements. Then either:"
+  echo "      $0 /Applications/Some.app"
+  echo "  or nominate it once:"
+  echo "      echo /Applications/Some.app > scratch/test-subject.txt"
+  echo
+  echo "  The subject is only ever READ. One Mach-O binary is copied into a"
+  echo "  temp directory for the loader fixture; the bundle is never written to."
   exit 2
 fi
 echo "Subject: $APP"
-[[ "$AUTO" -eq 1 ]] && echo "  (auto-selected; pass a path to choose your own)"
 echo "  Read only. One Mach-O binary is copied to a temp dir for the loader"
 echo "  fixture; the subject bundle itself is never written to."
 echo "=================================================================="
