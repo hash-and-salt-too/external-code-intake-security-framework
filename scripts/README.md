@@ -785,3 +785,81 @@ the baseline you redirect to a file, and composes no network request — though
 > Worked examples: [`../reports/little-snitch-v6.4.1-intake.md`](../reports/little-snitch-v6.4.1-intake.md)
 > (baseline recorded) and [`../reports/little-snitch-v6.5-update-audit.md`](../reports/little-snitch-v6.5-update-audit.md)
 > (baseline used).
+
+---
+
+## `phase5-kit/00-calibrate.sh` — prove the instruments work first
+
+**The problem it solves, measured not assumed.** In this framework's worked
+example, **15 of the 24 minutes** of Phase 5 preparation went on repairing
+instruments rather than auditing:
+
+| What failed | How it failed |
+|---|---|
+| `log stream` | refused — admin only |
+| `log show` | refused — a standard account has no log-store access |
+| admin-side live capture | ran, and **silently dropped every message** |
+| `qlmanage -m plugins` | printed nothing; it structurally cannot see a modern `.appex` — which prompted **three unnecessary reinstalls** |
+
+Every one of those produced **silence**, and silence reads as clean. This script
+proves each instrument can see a **known positive** before you rely on it, and
+names the ones that are blind.
+
+### Safe to run anywhere, on purpose
+
+The account checks are **reported, not enforced** here, so one run tells you
+about every broken instrument at once instead of one per account switch.
+`01-setup.sh` keeps the hard refusal, because that is the script that writes
+decoy credentials.
+
+```bash
+scripts/phase5-kit/00-calibrate.sh --kit-root /Users/Shared/ecisf-phase5
+```
+
+`--kit-root` defaults to `$HOME/ecisf-phase5`. Writing outside your own home is
+deliberately **not** the default — for cross-account evidence you pass a shared
+path explicitly, so it is a decision rather than an accident.
+
+### What it calibrates
+
+| | Check | Known positive used |
+|---|---|---|
+| A | Account isolation | non-admin, no passwordless `sudo`, no readable other homes, no real keys — including `id_ed25519`, since a missing `id_rsa` proves nothing |
+| B | Unified log | writes a unique marker with `logger` and reads it back |
+| C | Local listener | requests `/ecisf-calibration` and reports the HTTP code; a **404 is correct** |
+| D | Canary detectability | finds a plaintext **and** a base64 canary, and confirms a never-written string is *not* found |
+| E | Extension enumeration | counts what `pluginkit` returns; zero means the tool is blind, not that nothing is installed |
+| F | Snapshot commands | `launchctl list`, and login items — which need an Automation permission you want granted *before* an audit, not midway |
+| G | Kit root | writable, and correctly reported as inside or outside this account's home |
+
+> **D is the one the worked example turned on.** The Phase 5 finding depended on
+> spotting a **base64** copy of a decoy inside rendered HTML. A previewer that
+> embeds a file usually encodes it, so the plain words never appear — and a
+> broken search would make "no canary found" indistinguishable from "nothing was
+> taken."
+
+### What it tells you
+
+| Exit | Meaning |
+|:----:|---------|
+| `0` | Every instrument saw a known positive |
+| `1` | Stop — administrator account, or real credentials present |
+| `2` | At least one instrument is blind; the blind spot is named |
+
+### `tests/phase5-calibrate-tests.sh` — 23 assertions
+
+Offline, and writes only to a temporary directory — never `$HOME`, never
+`/Users/Shared` — so running the suite cannot disturb a real Phase 5 account.
+Mutation-verified against an unmutated control run:
+
+| Deliberate break | Detected by |
+|---|:--:|
+| Listener check always reports "up" | 2 assertions — the **negative** control |
+| Admin-account detection never fires | 3 assertions |
+
+The listener pair is the point: a check that always says "working" passes the
+positive control alone.
+
+> **Not yet done:** `01-setup.sh` and `02-capture.sh` still hardcode
+> `/Users/Shared/phase5-kit` and are written around the QLMarkdown worked
+> example. Generalising them is the remainder of this task.
