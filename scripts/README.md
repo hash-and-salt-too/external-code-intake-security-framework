@@ -192,6 +192,92 @@ not build or execute external code.
 
 ---
 
+## `phase2-supplychain.sh` — what does it pull in, and what runs at build time?
+
+**The problem it solves.** Phase 2 is where the real defect hid in this repo's
+worked example, and where the method failed twice in ways that *looked fine*.
+This script does the deterministic half: dependency pins, submodule inventory,
+the build files the build system actually invokes, and a content sweep for
+build-time red flags.
+
+It implements the offline part of
+[`../docs/phases/phase-2-supply-chain.md`](../docs/phases/phase-2-supply-chain.md).
+
+### Usage
+
+```bash
+# stage the tree YOURSELF first — and never let the clone pull submodules
+git clone --depth 1 --no-recurse-submodules -b 1.5.0 <url> quarantine/proj
+
+scripts/phase2-supplychain.sh quarantine/proj \
+  --expect-sha <the-commit-you-pinned> \
+  --exclude boost --exclude lua-5.5.0
+```
+
+### Three rules it enforces, each from a real miss
+
+- **Submodules come from `git ls-tree -r HEAD` gitlinks, not `git submodule
+  status`.** On an uninitialised clone the latter reported **1 of 4**. Gitlinks
+  live in the tree object whether or not anything is checked out. Mismatches are
+  reported in *both* directions: a pinned commit with no declared origin, and a
+  declared submodule with no gitlink.
+- **Build files are enumerated from the build system, never from filenames.** A
+  filename search for `Makefile` missed `dependencies/MakefilePCRE` and
+  `MakefileJPCRE` entirely, and a script built on filename patterns would have
+  shipped a false clean. This reads `PBXLegacyTarget` entries out of every
+  `project.pbxproj` and prints the **difference** between the two enumerations —
+  the difference is the evidence.
+- **Exclusions are counted and named, never silent.** An exclusion list that
+  quietly swallows the whole tree produces a beautifully clean sweep of nothing.
+
+### Why an unparseable project is not a quiet zero
+
+`project.pbxproj` is an OpenStep plist, converted with `plutil` and queried with
+`jq`. Both are checked: `plutil` must exit 0 **and** its output must parse as
+JSON, because `plutil` writes parse errors to *stdout* and would otherwise hand
+back an error string that looks like data.
+
+If a project cannot be parsed, or parses to zero objects, the script says
+**inconclusive** and exits 2. It never reports "no build steps," because a
+broken parser and a project with no build steps produce identical output.
+
+The red-flag matcher likewise **self-tests against a known-positive line** before
+any sweep result is reported, and a sweep that scanned zero files is refused as
+a clean result.
+
+### What it tells you
+
+| Exit | Meaning |
+|:----:|---------|
+| `0` | Evidence collected; no blocking fact found |
+| `1` | A build file matched a fetch-and-run / privilege pattern. Outranks `2`; every matching line is printed for a human to classify |
+| `2` | Inconclusive: not a git repo, an unparseable build system, a revision mismatch, or a sweep that scanned nothing |
+
+### What it deliberately does **not** do
+
+It does not clone, fetch, build, install or execute anything — acquisition stays
+a human step, the same line Phase 4 draws at `ditto -x -k`. It asks **no network
+questions at all**, so whether each pinned commit is still *retrievable*, and
+whether any dependency carries a published advisory, are both left unanswered
+and said so explicitly at the end of every run.
+
+### `tests/phase2-supplychain-tests.sh` — 31 assertions on throwaway repos
+
+Fixtures are real git repositories built with known, countable defects. Nothing
+in them is ever executed. Verified by mutation rather than assumed:
+
+| Deliberate break | Detected by | Degrades to |
+|---|:--:|---|
+| Build-system selector finds no targets | 3 assertions | `MakefilePCRE` silently lost |
+| Gitlink parser finds nothing | 4 assertions | **inconclusive**, not clean |
+| Red-flag pattern can never match | 6 assertions | **inconclusive** — self-test fires |
+
+The exclusion logic carries a positive **and** a negative control: one run proves
+the vendored hit is excluded, a second run over the same tree proves it is found
+when it is not excluded. Without the second, a bug that hid everything would pass.
+
+---
+
 ## `phase4-artifact.sh` — Phase 4 evidence, gathered in one pass
 
 **The problem it solves.** Phase 4 is the most script-ready phase in the
