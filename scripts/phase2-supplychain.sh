@@ -10,8 +10,10 @@
 # stays a human step, exactly as expanding an archive does in Phase 4 — where an
 # action is needed, the exact command is printed for a human to run.
 #
-# This is the OFFLINE half. Advisory lookups and the submodule resolvability
-# probe need the network and arrive behind explicit opt-in flags.
+# This is the OFFLINE half by default. Advisory lookups and the submodule
+# resolvability probe need the network and are behind two SEPARATE opt-in flags,
+# because they differ in a way that matters: --online contacts destinations THIS
+# SCRIPT chose, while --probe-pins contacts destinations THE ARTIFACT chose.
 #
 # It emits FACTS. It does not emit a verdict, and a quiet run is not approval.
 set -uo pipefail
@@ -38,30 +40,52 @@ Options:
                        Repeatable. Excluded paths are COUNTED and NAMED, never
                        dropped silently — an exclusion list that swallows the
                        whole tree produces a clean-looking sweep of nothing.
+  --online             Allow advisory lookups against api.osv.dev. OFF by
+                       default. Destinations are fixed and chosen by THIS
+                       SCRIPT, never by the artifact under review.
+  --probe-pins         Ask each submodule's own origin whether its pinned commit
+                       can still be retrieved. Requires --online, and is a
+                       separate flag on purpose: the hosts contacted here come
+                       out of the artifact's .gitmodules. Only https:// URLs are
+                       accepted, and every URL is printed before it is used.
+  --osv-json <file>    Classify an advisory response you fetched yourself
+                       instead of querying. Makes a fully offline run possible.
   -h, --help           Show this message.
 
+Environment:
+  ECISF_OSV_URL        Point advisory queries at a mirror or proxy instead of
+                       api.osv.dev.
+  ECISF_OSV_CAL_*      Repoint the calibration reference (ECO, NAME, BAD, GOOD)
+                       if the advisory it relies on ever changes upstream.
+
 What it does NOT do:
-  It does not clone, fetch, build, install or execute anything. Stage the tree
-  yourself first, and never let the clone pull submodules:
+  It does not clone, fetch, build, install or execute anything from the tree.
+  Stage the tree yourself first, and never let the clone pull submodules:
       git clone --depth 1 --no-recurse-submodules -b <tag> <url> quarantine/x
   Submodules stay uninitialised on purpose: an uninitialised submodule is a
-  pointer you can read, not code you have fetched.
+  pointer you can read, not code you have fetched. --probe-pins asks whether a
+  commit EXISTS; it never checks one out.
 
 Exit codes (they describe findings, never approval):
   0  Evidence collected; no blocking fact found.
-  1  A blocking fact: a build file matched a fetch-and-run / privilege pattern.
+  1  A blocking fact: a build file matched a fetch-and-run / privilege pattern,
+     or a pinned commit could not be retrieved from an origin that IS reachable.
      This outranks 2 — inconclusive sections are still printed.
   2  Inconclusive: bad arguments, not a git repository, a build system that
-     could not be parsed, or a content sweep that scanned nothing.
+     could not be parsed, a content sweep that scanned nothing, or an advisory
+     query whose calibration failed.
 EOF
 }
 
-SRC=""; EXPECT_SHA=""; EXCLUDES=""
+SRC=""; EXPECT_SHA=""; EXCLUDES=""; ONLINE=0; PROBE_PINS=0; OSV_JSON=""
 while [[ $# -gt 0 ]]; do
   case "${1:-}" in
     -h|--help) usage; exit 0 ;;
     --expect-sha) shift; EXPECT_SHA="${1:-}"; shift || true ;;
     --exclude)    shift; EXCLUDES="$EXCLUDES ${1:-}"; shift || true ;;
+    --osv-json)   shift; OSV_JSON="${1:-}"; shift || true ;;
+    --online)     ONLINE=1; shift ;;
+    --probe-pins) PROBE_PINS=1; shift ;;
     -*) echo "$STOP Unrecognised argument: $1"; echo; usage; exit 2 ;;
     *)
       if [[ -n "$SRC" ]]; then
@@ -78,6 +102,32 @@ SRC="${SRC%/}"
 for t in git jq plutil awk sed grep find; do
   command -v "$t" >/dev/null 2>&1 || { echo "$STOP Required tool missing: $t"; exit 2; }
 done
+
+# The pin probe hands a URL out of the artifact's own .gitmodules to git. That
+# is a different risk class from querying an endpoint this script chose, so it
+# needs its own deliberate keystroke rather than riding along on --online.
+if [[ "$PROBE_PINS" -eq 1 && "$ONLINE" -eq 0 ]]; then
+  echo "$STOP --probe-pins requires --online."
+  echo "  They are separate because they differ in who picks the destination:"
+  echo "  --online contacts endpoints this script chose; --probe-pins contacts"
+  echo "  hosts named by the artifact you are reviewing."
+  exit 2
+fi
+if [[ -n "$OSV_JSON" && ! -f "$OSV_JSON" ]]; then
+  echo "$STOP --osv-json file not found: $OSV_JSON"; exit 2
+fi
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+if [[ "$ONLINE" -eq 1 || -n "$OSV_JSON" ]]; then
+  if [[ ! -r "$SCRIPT_DIR/lib/advisory-query.sh" ]]; then
+    echo "$STOP Missing shared classifier: $SCRIPT_DIR/lib/advisory-query.sh" >&2
+    exit 2
+  fi
+  # shellcheck source=lib/advisory-query.sh
+  . "$SCRIPT_DIR/lib/advisory-query.sh"
+  advisory_require_tools || exit 2
+  command -v curl >/dev/null 2>&1 || { echo "$STOP Required tool missing: curl"; exit 2; }
+fi
 
 WORK=$(mktemp -d) || { echo "$STOP Could not create a temporary directory."; exit 2; }
 trap 'rm -rf "$WORK"' EXIT
@@ -155,12 +205,14 @@ fi
 
 if [[ "$gl_n" -gt 0 ]]; then
   echo
+  : > "$WORK/pins.txt"
   while IFS="$(printf '\t')" read -r sha p; do
     [[ -n "$p" ]] || continue
     url=$(git config -f "$SRC/.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null \
           | awk -v want="$p" '$2==want {print $1}' \
           | sed 's/\.path$/.url/' \
           | while read -r key; do git config -f "$SRC/.gitmodules" --get "$key" 2>/dev/null; done)
+    printf '%s\t%s\t%s\n' "$p" "$sha" "$url" >> "$WORK/pins.txt"
     if [[ -z "$url" ]]; then
       echo "  $WARN $p"
       echo "        $sha"
@@ -182,8 +234,184 @@ if [[ "$gl_n" -gt 0 ]]; then
 
   echo
   echo "$INFO Whether each pinned commit can still be RETRIEVED from its origin"
-  echo "  is a network question and is not answered here. That probe found the"
-  echo "  only material supply-chain defect in this framework's worked example."
+  if [[ "$PROBE_PINS" -eq 0 ]]; then
+    echo "  is a network question. Pass --online --probe-pins to ask it. That probe"
+    echo "  found the only material supply-chain defect in this framework's"
+    echo "  worked example, in seconds."
+  else
+    echo "  is asked below."
+  fi
+fi
+
+# --- Submodule pin resolvability (network, opt-in) -------------------------
+# Only https, checked here rather than left to git. A .gitmodules URL is
+# attacker-controlled input, and git's ext:: transport executes a command --
+# handing one to git unchecked would cross the line this whole framework draws.
+url_is_safe() {
+  case "$1" in
+    https://*) ;;
+    *) return 1 ;;
+  esac
+  case "$1" in
+    *[[:space:]]*) return 1 ;;
+  esac
+  return 0
+}
+
+# Ask twice, because one question cannot tell "your network is down" apart from
+# "that commit is gone", and those are completely different findings.
+probe_reachable() {
+  GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/true \
+  git -c protocol.allow=never -c protocol.https.allow=always \
+      -c core.hooksPath=/dev/null -c credential.helper= \
+      -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 \
+      ls-remote --heads "$1" >/dev/null 2>&1
+}
+probe_commit() {
+  GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/usr/bin/true \
+  git -c protocol.allow=never -c protocol.https.allow=always \
+      -c core.hooksPath=/dev/null -c credential.helper= \
+      -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 \
+      -C "$2" fetch --depth 1 --no-recurse-submodules --no-tags -q "$1" "$3" >/dev/null 2>&1
+}
+
+if [[ "$PROBE_PINS" -eq 1 ]]; then
+  echo
+  echo "--- Submodule pin resolvability (network) ---------------------------"
+  if [[ ! -s "$WORK/pins.txt" ]]; then
+    echo "$INFO No pinned submodules to probe."
+  else
+    echo "  These hosts come from the ARTIFACT's .gitmodules, not from this"
+    echo "  script. Nothing has been contacted yet:"
+    awk -F"$(printf '\t')" '{print "      " ($3=="" ? "<no url declared>" : $3)}' "$WORK/pins.txt" \
+      | LC_ALL=C sort -u
+    echo
+    git init -q --bare "$WORK/probe.git" 2>/dev/null
+    while IFS="$(printf '\t')" read -r p sha url; do
+      [[ -n "$p" ]] || continue
+      if [[ -z "$url" ]]; then
+        echo "  $WARN $p — no declared origin, nothing to ask"
+        INCONCLUSIVE=1
+        continue
+      fi
+      if ! url_is_safe "$url"; then
+        echo "  $STOP $p — REFUSED, not a plain https URL:"
+        echo "        $url"
+        echo "        git transports such as ext:: can execute a command. This"
+        echo "        URL was never passed to git."
+        INCONCLUSIVE=1
+        continue
+      fi
+      if ! probe_reachable "$url"; then
+        echo "  $WARN $p — origin UNREACHABLE"
+        echo "        $url"
+        echo "        Could be the network, could be the repository. Not a"
+        echo "        finding about the artifact until the origin answers."
+        INCONCLUSIVE=1
+        continue
+      fi
+      if probe_commit "$url" "$WORK/probe.git" "$sha"; then
+        echo "  $OK  $p — pinned commit RETRIEVABLE"
+      else
+        echo "  $STOP $p — origin is reachable but the pinned commit is NOT"
+        echo "        $sha"
+        echo "        $url"
+        echo "        The code this project pins cannot be read, diffed against"
+        echo "        upstream, or version-matched. That is a verifiability gap,"
+        echo "        not proof of tampering — and it is not resolvable here."
+        BLOCKER=1
+      fi
+    done < "$WORK/pins.txt"
+  fi
+fi
+
+# --- Advisory lookups (network or injected, opt-in) ------------------------
+# Repointable at an internal mirror or proxy, which also means a run can be
+# aimed somewhere deliberately unreachable to prove the failure path reports
+# INCONCLUSIVE rather than a clean zero.
+OSV_URL="${ECISF_OSV_URL:-https://api.osv.dev/v1/query}"
+# Overridable so calibration can be repointed without editing code if the
+# reference advisory ever changes upstream.
+OSV_CAL_ECO="${ECISF_OSV_CAL_ECO:-npm}"
+OSV_CAL_NAME="${ECISF_OSV_CAL_NAME:-lodash}"
+OSV_CAL_BAD="${ECISF_OSV_CAL_BAD:-4.17.15}"
+OSV_CAL_GOOD="${ECISF_OSV_CAL_GOOD:-4.17.21}"
+
+osv_query() { # payload outfile -> 0 ok, 2 inconclusive
+  local payload="$1" out="$2" code rc
+  code=$(curl -sS --max-time 25 -o "$out" -w '%{http_code}' \
+         -H 'Content-Type: application/json' \
+         --data-binary "$payload" "$OSV_URL" 2>/dev/null)
+  rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    echo "        query FAILED (curl exit $rc). This is not zero advisories."
+    return 2
+  fi
+  if [[ "$code" != "200" ]]; then
+    echo "        query returned HTTP $code. This is not zero advisories."
+    return 2
+  fi
+  return 0
+}
+
+if [[ "$ONLINE" -eq 1 || -n "$OSV_JSON" ]]; then
+  echo
+  echo "--- Advisories ------------------------------------------------------"
+fi
+
+CALIBRATED=0
+if [[ "$ONLINE" -eq 1 ]]; then
+  echo "  Calibration — can this query path see a KNOWN advisory?"
+  cal_pos=""; cal_neg=""
+  if osv_query "{\"package\":{\"name\":\"$OSV_CAL_NAME\",\"ecosystem\":\"$OSV_CAL_ECO\"},\"version\":\"$OSV_CAL_BAD\"}" "$WORK/cal-bad.json" \
+     && advisory_classify "$WORK/cal-bad.json" "$WORK/cal-bad.facts" 2>/dev/null; then
+    cal_pos=$(advisory_fact record-total "$WORK/cal-bad.facts")
+  fi
+  if osv_query "{\"package\":{\"name\":\"$OSV_CAL_NAME\",\"ecosystem\":\"$OSV_CAL_ECO\"},\"version\":\"$OSV_CAL_GOOD\"}" "$WORK/cal-good.json" \
+     && advisory_classify "$WORK/cal-good.json" "$WORK/cal-good.facts" 2>/dev/null; then
+    cal_neg=$(advisory_fact record-total "$WORK/cal-good.facts")
+  fi
+  echo "      positive control $OSV_CAL_NAME@$OSV_CAL_BAD  -> ${cal_pos:-<no answer>} record(s)"
+  echo "      negative control $OSV_CAL_NAME@$OSV_CAL_GOOD -> ${cal_neg:-<no answer>} record(s)"
+  if [[ -n "$cal_pos" && -n "$cal_neg" && "$cal_pos" -gt 0 && "$cal_neg" -lt "$cal_pos" ]]; then
+    echo "  $OK  calibration PASSED: the path sees a known positive, and the"
+    echo "      version filter distinguishes a fixed release from a vulnerable one."
+    CALIBRATED=1
+  else
+    echo "  $STOP calibration FAILED. No advisory result below can be believed,"
+    echo "      because a broken query and a clean dependency both return zero."
+    INCONCLUSIVE=1
+  fi
+fi
+
+if [[ -n "$OSV_JSON" ]]; then
+  echo
+  echo "  Supplied response: $OSV_JSON"
+  if advisory_classify "$OSV_JSON" "$WORK/supplied.facts"; then
+    advisory_summary "$WORK/supplied.facts" "the supplied query"
+  else
+    echo "  $STOP the supplied response could not be classified."
+    INCONCLUSIVE=1
+  fi
+fi
+
+# Pins are queried BY COMMIT. Both submodule gitlinks and SwiftPM pins carry an
+# immutable revision, so no package-name or ecosystem guess is needed to ask the
+# question — and a wrong name would have produced a confident, empty answer.
+if [[ "$ONLINE" -eq 1 && "$CALIBRATED" -eq 1 && -s "$WORK/pins.txt" ]]; then
+  echo
+  echo "  Pinned commits, queried by revision:"
+  while IFS="$(printf '\t')" read -r p sha url; do
+    [[ -n "$sha" ]] || continue
+    echo "    $p  ${sha}"
+    if osv_query "{\"commit\":\"$sha\"}" "$WORK/pin.json" \
+       && advisory_classify "$WORK/pin.json" "$WORK/pin.facts" 2>/dev/null; then
+      advisory_summary "$WORK/pin.facts" "$p" | sed 's/^/    /'
+    else
+      echo "      $STOP query inconclusive for this pin — not a clean result."
+      INCONCLUSIVE=1
+    fi
+  done < "$WORK/pins.txt"
 fi
 
 # --- SwiftPM pins ----------------------------------------------------------
@@ -383,10 +611,16 @@ fi
 # --- Close -----------------------------------------------------------------
 echo
 echo "=================================================================="
-echo " These are facts, not a verdict. A quiet run is not approval, and"
-echo " this half of Phase 2 asked no network questions at all:"
-echo " whether each pinned commit is still RETRIEVABLE, and whether any"
-echo " dependency carries a published advisory, are both unanswered."
+echo " These are facts, not a verdict. A quiet run is not approval."
+if [[ "$PROBE_PINS" -eq 0 ]]; then
+  echo " NOT asked: whether each pinned commit is still retrievable."
+fi
+if [[ "$ONLINE" -eq 0 && -z "$OSV_JSON" ]]; then
+  echo " NOT asked: whether any dependency carries a published advisory."
+fi
+echo " Never asked here at all: whether vendored source matches its upstream"
+echo " byte for byte, and whether any dependency is trustworthy. Those are"
+echo " reading and judgement, and they stay with a human."
 echo "=================================================================="
 
 if [[ "$BLOCKER" -ne 0 ]]; then exit 1; fi

@@ -133,7 +133,8 @@ has "non-standard build file recovered from the build system" "$OUT1" 'MakefileP
 has "the filename-search gap is named explicitly" "$OUT1" 'filename search misses'
 has "red-flag detector self-tested before reporting" "$OUT1" 'sees a known-positive line'
 has "sparkle feed url surfaced" "$OUT1" 'SUFeedURL'
-has "network questions declared unanswered" "$OUT1" 'RETRIEVABLE'
+has "offline run declares the pin probe unasked" "$OUT1" 'NOT asked: whether each pinned commit'
+has "offline run declares advisories unasked" "$OUT1" 'NOT asked: whether any dependency'
 hasnt "excluded vendored hit is NOT reported" "$OUT1" 'boost.hpp'
 
 # --- Run 2: same tree, nothing excluded (the positive control) -------------
@@ -181,6 +182,71 @@ has "zero files scanned is not called clean" "$OUT5" 'not a clean sweep'
 is "a missing source tree exits 2" "2" "$?"
 "$SUT" >/dev/null 2>&1
 is "no arguments exits 2" "2" "$?"
+
+# --- Network opt-in: the two flags stay separate ---------------------------
+OUT6=$("$SUT" "$R" --probe-pins 2>&1); RC6=$?
+is "--probe-pins without --online exits 2" "2" "$RC6"
+has "and explains why the two flags are separate" "$OUT6" 'hosts named by the artifact'
+
+"$SUT" "$R" --osv-json "$WORK/nope.json" >/dev/null 2>&1
+is "--osv-json with a missing file exits 2" "2" "$?"
+
+# --- Offline advisory path via injected response ---------------------------
+cat > "$WORK/osv.json" <<'EOF'
+{"vulns":[
+ {"id":"UBUNTU-CVE-2020-5238","affected":[{"package":{"ecosystem":"Ubuntu:20.04:LTS","name":"x"}}]},
+ {"id":"CVE-2022-24724","aliases":["GHSA-mc3g-88wq-6f4x"],"affected":[{"package":{"ecosystem":"GIT","name":"x"}}]}
+]}
+EOF
+OUT7=$("$SUT" "$R" --exclude boost --osv-json "$WORK/osv.json" 2>&1)
+has "an injected response is classified without any network" "$OUT7" 'records returned      : 2'
+has "distro filtering is visible in the report" "$OUT7" 'filtered as distro'
+has "distinct defects are reported after de-duplication" "$OUT7" 'distinct defects'
+
+# --- THE tripwire: a failed query must never read as zero advisories -------
+# Aimed at a closed local port, so this makes no external request.
+OUT8=$(ECISF_OSV_URL='http://127.0.0.1:9/v1/query' "$SUT" "$R" --exclude boost --online 2>&1); RC8=$?
+is "a failed advisory query exits 2, not 0" "2" "$RC8"
+has "the failure is named as a failure" "$OUT8" 'This is not zero advisories'
+has "calibration failure is reported" "$OUT8" 'calibration FAILED'
+has "and results are explicitly declared unbelievable" "$OUT8" 'No advisory result below can be believed'
+hasnt "a failed query never claims a clean advisory result" "$OUT8" 'calibration PASSED'
+
+# --- Hostile submodule URLs must never reach git ---------------------------
+# git's ext:: transport executes a command. This is the single most dangerous
+# input in the whole phase, and it is attacker-controlled.
+H="$WORK/hostile"
+mkdir -p "$H"
+git init -q "$H"
+cat > "$H/.gitmodules" <<EOF
+[submodule "evil"]
+	path = deps/evil
+	url = ext::sh -c touch% $WORK/pwned-marker
+[submodule "local"]
+	path = deps/local
+	url = file:///etc
+[submodule "insecure"]
+	path = deps/insecure
+	url = git://example.invalid/x.git
+EOF
+printf 'x\n' > "$H/readme.txt"
+gitq "$H" add -A >/dev/null 2>&1
+for entry in "deps/evil" "deps/local" "deps/insecure"; do
+  gitq "$H" update-index --add --cacheinfo "160000,2222222222222222222222222222222222222222,$entry" >/dev/null 2>&1
+done
+gitq "$H" commit -qm hostile >/dev/null 2>&1
+
+OUT9=$(ECISF_OSV_URL='http://127.0.0.1:9/v1/query' "$SUT" "$H" --online --probe-pins 2>&1); RC9=$?
+is "an ext:: submodule URL is REFUSED" "3" \
+   "$(printf '%s' "$OUT9" | grep -c 'REFUSED, not a plain https URL')"
+has "the ext:: URL is named so a human can see it" "$OUT9" 'ext::sh'
+has "the refusal explains the command-execution risk" "$OUT9" 'can execute a command'
+has "the refusal states git was never invoked" "$OUT9" 'never passed to git'
+hasnt "a refused URL is never probed for reachability" "$OUT9" 'origin UNREACHABLE'
+hasnt "a refused URL never reports a retrievable commit" "$OUT9" 'RETRIEVABLE'
+is "hostile fixture does not exit 0" "yes" "$([[ "$RC9" -ne 0 ]] && echo yes || echo no)"
+is "no side effect was produced by the ext:: payload" "no" \
+   "$([[ -e "$WORK/pwned-marker" ]] && echo yes || echo no)"
 
 echo "=================================================================="
 echo "passed $PASSED   failed $FAILED"

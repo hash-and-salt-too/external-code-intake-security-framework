@@ -197,24 +197,14 @@ not build or execute external code.
 **The problem it solves.** Phase 2 is where the real defect hid in this repo's
 worked example, and where the method failed twice in ways that *looked fine*.
 This script does the deterministic half: dependency pins, submodule inventory,
-the build files the build system actually invokes, and a content sweep for
-build-time red flags.
+the build files the build system actually invokes, a content sweep for build-time
+red flags, and — behind explicit opt-in — whether each pinned commit can still be
+retrieved and whether it carries a published advisory.
 
-It implements the offline part of
+It implements
 [`../docs/phases/phase-2-supply-chain.md`](../docs/phases/phase-2-supply-chain.md).
 
-### Usage
-
-```bash
-# stage the tree YOURSELF first — and never let the clone pull submodules
-git clone --depth 1 --no-recurse-submodules -b 1.5.0 <url> quarantine/proj
-
-scripts/phase2-supplychain.sh quarantine/proj \
-  --expect-sha <the-commit-you-pinned> \
-  --exclude boost --exclude lua-5.5.0
-```
-
-### Three rules it enforces, each from a real miss
+### Three offline rules, each from a real miss
 
 - **Submodules come from `git ls-tree -r HEAD` gitlinks, not `git submodule
   status`.** On an uninitialised clone the latter reported **1 of 4**. Gitlinks
@@ -245,36 +235,129 @@ The red-flag matcher likewise **self-tests against a known-positive line** befor
 any sweep result is reported, and a sweep that scanned zero files is refused as
 a clean result.
 
+### Usage
+
+```bash
+# stage the tree YOURSELF first — and never let the clone pull submodules
+git clone --depth 1 --no-recurse-submodules -b 1.5.0 <url> quarantine/proj
+
+# offline by default
+scripts/phase2-supplychain.sh quarantine/proj \
+  --expect-sha <the-commit-you-pinned> \
+  --exclude boost --exclude lua-5.5.0
+
+# opt in to the network when you want the two questions offline cannot answer
+scripts/phase2-supplychain.sh quarantine/proj --online --probe-pins
+```
+
+### Two network flags, not one
+
+**Offline is the default.** Every network-dependent check is skipped and named as
+unasked, never quietly passed over.
+
+| Flag | Who picks the destination | Risk |
+|---|---|---|
+| `--online` | **This script** — `api.osv.dev`, fixed | Low. Responses are parsed as JSON, never executed |
+| `--probe-pins` | **The artifact** — URLs out of its own `.gitmodules` | Real, and it gets its own keystroke |
+
+They are separate because of that second row. Git's `ext::` transport *executes a
+command*, and `.gitmodules` is attacker-controlled input — handing one to `git`
+unchecked would cross the line this whole framework draws. So the probe accepts
+**`https://` only**, checked before `git` is ever invoked, and prints every URL
+before contacting anything. Git is additionally run with `protocol.allow=never`,
+`core.hooksPath=/dev/null`, no credential helper, no terminal prompt, into a bare
+repository with no checkout.
+
+`--osv-json <file>` classifies a response you fetched yourself, so a fully
+offline run is a real mode rather than a degraded one.
+
+### The probe asks two questions, not one
+
+```
+deps/cmark-gfm — origin is reachable but the pinned commit is NOT
+```
+
+A single `git fetch` cannot tell *your network is down* from *that commit is
+gone*, and those are completely different findings. So each pin gets an
+`ls-remote` (is the origin up?) and then a `fetch` (is this commit there?):
+
+| Reachable | Commit retrievable | Reported as |
+|:--:|:--:|---|
+| yes | yes | retrievable |
+| yes | **no** | **blocking** — the pinned code cannot be read, diffed or version-matched |
+| no | — | inconclusive, not a finding about the artifact |
+
+That middle row is exactly the shape of the one material defect in this repo's
+worked example.
+
+### Zero advisories is not a pass, and it is proved every run
+
+Before any advisory result is reported, `--online` runs a live calibration
+against a package with a **known** advisory, plus a fixed version as a negative
+control. Measured 2026-09-16:
+
+```
+positive control lodash@4.17.15  -> 6 record(s)
+negative control lodash@4.17.21 -> 3 record(s)
+✅ calibration PASSED
+```
+
+Note the fixed release still returns **3**. An absolute "the negative control must
+return zero" would fail here — the assertion is *relative*, which is what makes it
+survive upstream adding records.
+
+If calibration fails, **every** advisory result is declared unbelievable and the
+run exits 2. A broken query and a clean dependency both return zero, so the only
+thing separating them is evidence that the path can see a positive.
+
+Pins are queried **by commit**, not by package name. Both submodule gitlinks and
+SwiftPM entries carry an immutable revision, so no name-to-ecosystem guess is
+needed — and a wrong guess would have produced a confident, empty answer.
+
+> **Known limit:** only submodule gitlinks are advisory-queried today. Revisions
+> in `Package.resolved` are listed but not yet queried.
+
 ### What it tells you
 
 | Exit | Meaning |
 |:----:|---------|
 | `0` | Evidence collected; no blocking fact found |
-| `1` | A build file matched a fetch-and-run / privilege pattern. Outranks `2`; every matching line is printed for a human to classify |
-| `2` | Inconclusive: not a git repo, an unparseable build system, a revision mismatch, or a sweep that scanned nothing |
+| `1` | A build file matched a fetch-and-run / privilege pattern, **or** a pinned commit could not be retrieved from an origin that *is* reachable. Outranks `2` |
+| `2` | Inconclusive: not a git repo, an unparseable build system, a sweep that scanned nothing, or an advisory calibration that failed |
 
 ### What it deliberately does **not** do
 
-It does not clone, fetch, build, install or execute anything — acquisition stays
-a human step, the same line Phase 4 draws at `ditto -x -k`. It asks **no network
-questions at all**, so whether each pinned commit is still *retrievable*, and
-whether any dependency carries a published advisory, are both left unanswered
-and said so explicitly at the end of every run.
+It does not clone, fetch, build, install or execute anything **from the tree** —
+acquisition stays a human step, the same line Phase 4 draws at `ditto -x -k`.
+`--probe-pins` asks whether a commit *exists*; it never checks one out. Whether
+vendored source matches its upstream byte for byte, and whether any dependency is
+trustworthy, are reading and judgement, and stay with a human.
 
-### `tests/phase2-supplychain-tests.sh` — 31 assertions on throwaway repos
+### `tests/phase2-supplychain-tests.sh` — 51 assertions on throwaway repos
 
-Fixtures are real git repositories built with known, countable defects. Nothing
-in them is ever executed. Verified by mutation rather than assumed:
+Fixtures are real git repositories built with known, countable defects, including
+a hostile one whose `.gitmodules` carries `ext::`, `file://` and `git://` URLs.
+Nothing in any fixture is ever executed. **Every assertion is offline** — the only
+socket touched is a closed local port, used to prove that a failed query reports
+inconclusive rather than zero.
+
+Verified by mutation, each against an unmutated control run in the same harness:
 
 | Deliberate break | Detected by | Degrades to |
 |---|:--:|---|
 | Build-system selector finds no targets | 3 assertions | `MakefilePCRE` silently lost |
 | Gitlink parser finds nothing | 4 assertions | **inconclusive**, not clean |
 | Red-flag pattern can never match | 6 assertions | **inconclusive** — self-test fires |
+| `url_is_safe` accepts any URL | 4 assertions | **the `ext::` URL reaches git** |
+
+> The control run matters as much as the mutant. A first attempt at the last row
+> "detected" 10 failures — but 6 of them were the throwaway copy failing to find
+> its own library, not the mutation. Harness breakage reads exactly like a caught
+> bug unless you run the unmutated copy first.
 
 The exclusion logic carries a positive **and** a negative control: one run proves
-the vendored hit is excluded, a second run over the same tree proves it is found
-when it is not excluded. Without the second, a bug that hid everything would pass.
+the vendored hit is excluded, a second over the same tree proves it is found when
+it is not. Without the second, a bug that hid everything would pass.
 
 ---
 
