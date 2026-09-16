@@ -221,9 +221,11 @@ if [[ $cs_rc -eq 0 ]]; then
 else
   echo "$STOP codesign --verify --deep --strict: FAILED (exit $cs_rc)"
   printf '%s\n' "$cs_out" | sed 's/^/      /'
-  echo "  A broken signature on an artifact you have not run yet usually means"
-  echo "  the bytes changed after signing — including by expanding with unzip"
-  echo "  instead of ditto -x -k. Rule that out before treating it as tampering."
+  echo "  Read the message before concluding tampering. 'resource envelope is"
+  echo "  obsolete' or a sealed-resource complaint means an OLD SIGNING FORMAT,"
+  echo "  not modified bytes — common in software that predates the current"
+  echo "  rules. A genuine mismatch names the file that changed. Expanding with"
+  echo "  unzip instead of ditto -x -k also breaks signatures; rule that out too."
   BLOCKER=1
 fi
 

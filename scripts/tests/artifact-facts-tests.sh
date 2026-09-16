@@ -35,11 +35,20 @@ assert_eq() { # name expected actual
 }
 
 # --- pick a subject -------------------------------------------------------
-# No hardcoded app: this has to keep working on a different machine.
+# No hardcoded app: this has to keep working on a different machine. But
+# "first match in /Applications" is not a safe rule either — it selected a
+# password manager's Safari extension, purely because a digit sorts before
+# letters. Nothing here reads user data, and the subject bundle is only ever
+# read, never written. Even so, credential and security tooling is skipped:
+# a test has no business rummaging through it, and being surprised by the
+# subject is a good reason to distrust the result.
+SENSITIVE_RE='1password|bitwarden|keeper|lastpass|dashlane|enpass|strongbox|proton|nordpass|authenticator|yubi|keychain|wallet|vpn|banking|gnupg|gpg|tor browser'
+
 pick_app() {
   local a team ents
   for a in "$@"; do
     [[ -d "$a" ]] || continue
+    printf '%s' "$(basename "$a")" | grep -qiE "$SENSITIVE_RE" && continue
     team=$(codesign -dv --verbose=4 "$a" 2>&1 | sed -n 's/^TeamIdentifier=//p' | head -1)
     [[ -n "$team" && "$team" != "not set" ]] || continue
     ents=$(codesign -d --entitlements - --xml "$a" 2>/dev/null | plutil -p - 2>/dev/null | grep -c '=>')
@@ -50,7 +59,9 @@ pick_app() {
 }
 
 APP="${1:-}"
+AUTO=0
 if [[ -z "$APP" ]]; then
+  AUTO=1
   APP=$(pick_app /Applications/*.app) || true
 fi
 if [[ -z "$APP" || ! -d "$APP" ]]; then
@@ -60,6 +71,9 @@ if [[ -z "$APP" || ! -d "$APP" ]]; then
   exit 2
 fi
 echo "Subject: $APP"
+[[ "$AUTO" -eq 1 ]] && echo "  (auto-selected; pass a path to choose your own)"
+echo "  Read only. One Mach-O binary is copied to a temp dir for the loader"
+echo "  fixture; the subject bundle itself is never written to."
 echo "=================================================================="
 
 # --- 1. the collector reads something, and reads it the same way twice ----
@@ -155,11 +169,19 @@ assert_eq "schema 1: newer record kinds not reported as drift" "0" "$s1_rc"
 assert_eq "collation guard rejects a non-C locale" "1" "$guard_rc"
 
 # --- 7. phase4: published hash comparison --------------------------------
-ARC="$TEST_ROOT/subject.zip"
-ditto -c -k --keepParent "$APP" "$ARC" 2>/dev/null
+# --archive is hashed independently of the bundle, so this needs *a file*, not
+# a zip of the subject. Archiving a whole app to test shasum was slow and
+# needlessly copied someone's application into a temp directory.
+ARC="$TEST_ROOT/subject-stand-in.bin"
+printf 'ECISF hash fixture\n' > "$ARC"
 real_sha=$(shasum -a 256 "$ARC" | awk '{print $1}')
-"$PHASE4" "$APP" --archive "$ARC" --published-sha256 "$real_sha" >/dev/null 2>&1
-assert_eq "phase4: matching published hash exits 0" "0" "$?"
+# The exit code is shared by every blocking check, so asserting exit 0 here
+# tests the signature as much as the hash — and fails on a subject with a
+# legacy signature for reasons that have nothing to do with hashing. Assert
+# what this case is actually about.
+"$PHASE4" "$APP" --archive "$ARC" --published-sha256 "$real_sha" > "$TEST_ROOT/H0.out" 2>&1
+assert_eq "phase4: a matching published hash is reported as MATCHES" "1" \
+          "$(grep -c 'published digest  : MATCHES' "$TEST_ROOT/H0.out")"
 bad_sha="0${real_sha:1}"; [[ "$bad_sha" == "$real_sha" ]] && bad_sha="1${real_sha:1}"
 "$PHASE4" "$APP" --archive "$ARC" --published-sha256 "$bad_sha" > "$TEST_ROOT/H.out" 2>&1
 assert_eq "phase4: mismatched published hash exits 1" "1" "$?"
@@ -173,8 +195,12 @@ assert_eq "phase4: a digest without an archive is refused" "2" "$?"
 # mentions. An earlier pattern exceeded BSD grep's 255-repetition limit and
 # reported a clean zero for a bundle with a CDN script tag.
 FIX="$TEST_ROOT/Fixture.app"
-cp -R "$APP" "$FIX" 2>/dev/null
-mkdir -p "$FIX/Contents/Resources"
+# A minimal bundle, not a copy of the subject. The loader scan reads text
+# assets and does not care about signing, so one Mach-O binary is enough to
+# get phase4 past its "nothing signed to read" guard.
+mkdir -p "$FIX/Contents/MacOS" "$FIX/Contents/Resources"
+first_bin=$(grep "^component	" "$TEST_ROOT/rec1.txt" | head -1 | cut -f2)
+cp "$APP/$first_bin" "$FIX/Contents/MacOS/" 2>/dev/null
 cat > "$FIX/Contents/Resources/ecisf-test-loader.html" <<'HTML'
 <html><head>
 <script src="https://cdn.test.invalid/lib.min.js"></script>
