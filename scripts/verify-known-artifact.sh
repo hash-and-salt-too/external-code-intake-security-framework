@@ -4,7 +4,21 @@
 # It never installs, launches, mounts, modifies or executes the artifact.
 set -uo pipefail
 
+# Byte collation, not locale collation: sort and comm must agree or comm
+# silently reports the tail of both files as drift. See artifact-facts.sh.
+export LC_ALL=C
+
 OK="✅"; WARN="⚠️"; STOP="🛑"; INFO="•"
+
+# The fact collector is shared with phase4-artifact.sh so that audited evidence
+# and the stored baseline can never describe the same artifact differently.
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+if [[ ! -r "$SCRIPT_DIR/lib/artifact-facts.sh" ]]; then
+  echo "$STOP Missing shared collector: $SCRIPT_DIR/lib/artifact-facts.sh" >&2
+  exit 2
+fi
+# shellcheck source=lib/artifact-facts.sh
+. "$SCRIPT_DIR/lib/artifact-facts.sh"
 
 usage() {
   cat <<'EOF'
@@ -83,101 +97,10 @@ fi
 if [[ "$MODE" == "compare" && ! -f "$BASELINE" ]]; then
   echo "$STOP Baseline file not found: $BASELINE"; exit 2
 fi
-for t in codesign spctl otool file find; do
-  command -v "$t" >/dev/null 2>&1 || { echo "$STOP Required tool missing: $t"; exit 2; }
-done
+artifact_facts_require_tools || exit 2
+artifact_facts_require_collation || exit 2
 
 BUNDLE="${BUNDLE%/}"
-
-# Entitlements vary in key order and array indices between runs; flatten to a
-# stable, sorted set so only real changes show up as drift.
-normalize_entitlements() {
-  sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^[0-9][0-9]* => //' \
-    | grep -v '^[][{}]$' \
-    | grep -v '^$' \
-    | sort -u
-}
-
-collect_facts() {
-  local bundle="$1" out="$2"
-  : > "$out"
-
-  local bid
-  bid=$(codesign -dv --verbose=2 "$bundle" 2>&1 | sed -n 's/^Identifier=//p' | head -1)
-  [[ -n "$bid" ]] && printf 'bundle-identifier\t%s\n' "$bid" >> "$out"
-
-  if xcrun stapler validate "$bundle" >/dev/null 2>&1; then
-    printf 'notarization\tstapled\n' >> "$out"
-  else
-    printf 'notarization\tabsent\n' >> "$out"
-  fi
-
-  if spctl -a -vv "$bundle" >/dev/null 2>&1; then
-    printf 'gatekeeper\taccepted\n' >> "$out"
-  else
-    printf 'gatekeeper\trejected\n' >> "$out"
-  fi
-
-  # Persistence the bundle DECLARES about itself. Deliberately bundle-intrinsic:
-  # a baseline taken from a mounted image must equal one taken from /Applications,
-  # so installed /Library jobs are reported by --system-persistence instead.
-  # SMAppService accepts either a .plist (agent/daemon) or a .app (login item),
-  # so both are recorded — and neither is descended into.
-  local sub dir item label helper
-  for sub in LaunchAgents LaunchDaemons; do
-    dir="$bundle/Contents/Library/$sub"
-    [[ -d "$dir" ]] || continue
-    for item in "$dir"/*; do
-      [[ -e "$item" ]] || continue
-      case "$item" in
-        *.plist)
-          label=$(/usr/libexec/PlistBuddy -c 'Print :Label' "$item" 2>/dev/null) ;;
-        *.app)
-          label=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' \
-                    "$item/Contents/Info.plist" 2>/dev/null) ;;
-        *) continue ;;
-      esac
-      [[ -z "$label" ]] && label="(no-label)"
-      printf 'persistence\t%s|%s|%s\n' "$sub" "${item#"$bundle"/}" "$label" >> "$out"
-    done
-  done
-
-  while IFS= read -r helper; do
-    [[ -n "$helper" ]] && printf 'privileged-helper\t%s\n' "$helper" >> "$out"
-  done < <(/usr/libexec/PlistBuddy -c 'Print :SMPrivilegedExecutables' \
-             "$bundle/Contents/Info.plist" 2>/dev/null \
-             | sed -n 's/^ *\([A-Za-z0-9._][A-Za-z0-9._-]*\) = .*/\1/p' | sort -u)
-
-  local f rel info team auth flags ent lib
-  while IFS= read -r f; do
-    file -b "$f" 2>/dev/null | grep -q 'Mach-O' || continue
-    rel="${f#"$bundle"/}"
-    printf 'component\t%s\n' "$rel" >> "$out"
-
-    info=$(codesign -dv --verbose=4 "$f" 2>&1)
-
-    team=$(printf '%s\n' "$info" | sed -n 's/^TeamIdentifier=//p' | head -1)
-    [[ -n "$team" ]] && printf 'teamid\t%s|%s\n' "$rel" "$team" >> "$out"
-
-    auth=$(printf '%s\n' "$info" | sed -n 's/^Authority=//p' | head -1)
-    [[ -n "$auth" ]] && printf 'authority\t%s|%s\n' "$rel" "$auth" >> "$out"
-
-    flags=$(printf '%s\n' "$info" | sed -n 's/.*flags=\(0x[0-9a-f]*\).*/\1/p' | head -1)
-    [[ -n "$flags" ]] && printf 'cdflags\t%s|%s\n' "$rel" "$flags" >> "$out"
-
-    while IFS= read -r ent; do
-      [[ -n "$ent" ]] && printf 'entitlement\t%s|%s\n' "$rel" "$ent" >> "$out"
-    done < <(codesign -d --entitlements - --xml "$f" 2>/dev/null \
-               | plutil -p - 2>/dev/null | normalize_entitlements)
-
-    while IFS= read -r lib; do
-      [[ -n "$lib" ]] && printf 'nonapple-lib\t%s|%s\n' "$rel" "$lib" >> "$out"
-    done < <(otool -L "$f" 2>/dev/null | tail -n +2 | awk '{print $1}' \
-               | grep -vE '^/System/Library/|^/usr/lib/')
-  done < <(find "$bundle" -type f -perm -u+x 2>/dev/null | sort)
-
-  sort -o "$out" "$out"
-}
 
 WORK=$(mktemp -d) || { echo "$STOP Could not create a temporary directory."; exit 2; }
 trap 'rm -rf "$WORK"' EXIT
@@ -323,12 +246,7 @@ if [[ ! -s "$WORK/new.txt" ]]; then
 fi
 
 if [[ "$MODE" == "record" ]]; then
-  echo "# ECISF known-artifact baseline (schema 2)"
-  echo "# artifact: $(basename "$BUNDLE")"
-  echo "# recorded: $(date '+%Y-%m-%d')"
-  echo "# This records what was true at audit time. It is evidence, not permission."
-  echo "# schema 2 adds: persistence (bundle-declared launchd jobs), privileged-helper."
-  cat "$WORK/new.txt"
+  emit_baseline "$BUNDLE" "$WORK/new.txt"
   exit 0
 fi
 
@@ -337,13 +255,27 @@ fi
 # newer record types rather than inventing a finding that isn't one.
 BASE_SCHEMA=$(sed -n 's/^# ECISF known-artifact baseline (schema \([0-9][0-9]*\)).*/\1/p' "$BASELINE" | head -1)
 [[ -z "$BASE_SCHEMA" ]] && BASE_SCHEMA=1
-if [[ "$BASE_SCHEMA" -lt 2 ]]; then
+if [[ "$BASE_SCHEMA" -lt "$ARTIFACT_FACTS_SCHEMA" ]]; then
   awk -F'\t' '$1!="persistence" && $1!="privileged-helper"' "$WORK/new.txt" > "$WORK/new.trimmed"
   mv "$WORK/new.trimmed" "$WORK/new.txt"
   SCHEMA_NOTE=1
 fi
 
-grep -v '^#' "$BASELINE" | grep -v '^$' | sort > "$WORK/base.txt"
+# Baselines recorded before the plutil-stdout fix hold parse-error text as
+# entitlement records for components that simply have none. Those were never
+# facts about the artifact, so drop them rather than reporting their
+# disappearance as a dropped privilege.
+grep -v '^#' "$BASELINE" | grep -v '^$' \
+  | grep -v 'Cannot parse a NULL or zero-length data' | sort > "$WORK/base.txt"
+
+# comm produces nonsense, not an error, if either side is out of byte order.
+# Assert it rather than trusting it: a desynchronised comm looks like drift.
+if ! sort -c "$WORK/base.txt" 2>/dev/null || ! sort -c "$WORK/new.txt" 2>/dev/null; then
+  echo "$STOP Fact files are not in the byte order comm requires, so any"
+  echo "  comparison below would be unreliable. This is a tool fault, not a"
+  echo "  finding about the artifact. Check that LC_ALL=C is in effect."
+  exit 2
+fi
 
 comm -23 "$WORK/base.txt" "$WORK/new.txt" > "$WORK/removed.txt"
 comm -13 "$WORK/base.txt" "$WORK/new.txt" > "$WORK/added.txt"
@@ -356,7 +288,7 @@ echo "=================================================================="
 
 if [[ "${SCHEMA_NOTE:-0}" -eq 1 ]]; then
   echo
-  echo "$WARN Baseline is schema $BASE_SCHEMA; this script records schema 2."
+  echo "$WARN Baseline is schema $BASE_SCHEMA; this script records schema $ARTIFACT_FACTS_SCHEMA."
   echo "  Persistence and privileged-helper records were NOT compared, because"
   echo "  the baseline predates them. Re-record a baseline to cover them."
 fi

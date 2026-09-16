@@ -8,6 +8,14 @@ You can't read a compiled binary, so trust comes from **cryptographic proof + Ap
 
 > Everything below is a **read-only inspection command** — it examines the file, it does not install or run it. Run these in Terminal against the file you downloaded. Seeing the commands is the point (nothing hidden); a helper script can bundle them later if you want.
 
+> 🔧 **A helper now runs the mechanical half of this phase in one pass:**
+> [`../../scripts/phase4-artifact.sh`](../../scripts/phase4-artifact.sh). It gathers
+> integrity, quarantine, nested components, signature, identity, notarization,
+> entitlements, linkage and bundle completeness, and can diff the artifact's
+> entitlements against the source you reviewed in Phase 3. **Read this page
+> anyway** — the script produces the evidence, and every judgement below stays
+> yours. It never expands, installs or runs anything.
+
 ---
 
 ## 4.1 Get the file from the right place, safely

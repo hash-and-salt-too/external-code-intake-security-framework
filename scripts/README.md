@@ -140,6 +140,123 @@ not build or execute external code.
 
 ---
 
+## `phase4-artifact.sh` — Phase 4 evidence, gathered in one pass
+
+**The problem it solves.** Phase 4 is the most script-ready phase in the
+framework: a fixed sequence of commands with deterministic answers. Done by
+hand it took **38 minutes**, and its friction was never the thinking — it was
+`codesign` writing to stderr, entitlement output changing shape between macOS
+versions, and nested components that have to be enumerated or they are missed.
+This script runs that sequence and fills in the evidence table.
+
+It implements the mechanical half of
+[`../docs/phases/phase-4-binary-artifact.md`](../docs/phases/phase-4-binary-artifact.md):
+integrity, quarantine provenance, nested components, signature validity,
+identity, notarization, Gatekeeper, entitlements, linkage, and whether the
+bundle actually contains the code it runs.
+
+### Usage
+
+```bash
+# expand the download YOURSELF first — ditto, never unzip
+ditto -x -k QLMarkdown.zip quarantine/qlmarkdown/
+
+scripts/phase4-artifact.sh quarantine/qlmarkdown/QLMarkdown.app \
+  --archive quarantine/QLMarkdown.zip \
+  --published-sha256 <digest-from-the-release-page> \
+  --source quarantine/qlmarkdown-src \
+  --baseline-out reports/qlmarkdown-v1.5.0.baseline.txt
+```
+
+Every option is optional, and each one it is missing is reported as **not
+checked** rather than quietly skipped.
+
+| Option | What it adds |
+|---|---|
+| `--archive` | Hashes the downloaded file and reads its `com.apple.quarantine` tag |
+| `--published-sha256` | Compares that hash to the digest the project published |
+| `--source` | **The highest-value check:** diffs the artifact's entitlements against the `.entitlements` files in the source you reviewed |
+| `--baseline-out` | Writes the drift baseline from the *same* collection as the evidence |
+
+### Why `--source` matters most
+
+Signature and notarization answer *"is this the file the maintainer released?"*
+They say nothing about whether the shipped binary asks for more privilege than
+the code you read. That question is only answerable by comparison, and it is
+exactly the comparison a human is least likely to do by hand across every
+nested component.
+
+> ⚠️ **A source tree with no `.entitlements` files produces "no differences"** —
+> identical to a clean result and completely meaningless. The script refuses to
+> report that as clean and says the diff did not run.
+
+### What it deliberately does **not** do
+
+It does not download, expand, mount, install, launch or execute anything.
+Expansion stays a human step and must use `ditto -x -k`; plain `unzip` can
+corrupt signing metadata and make a valid signature look broken. Reading
+installer scripts also stays human — the script detects a `.pkg`/`.dmg` payload
+and prints the `pkgutil --expand` commands rather than running them.
+
+| Exit | Meaning | Next step |
+|:----:|---------|-----------|
+| `0` | Evidence collected; no blocking fact | Read it. It is evidence, not a verdict — the judgement calls are still yours. |
+| `1` | **Blocking fact:** published hash mismatch, or the signature does not verify | A hash mismatch means this is not the file the maintainer released. Rule out an `unzip` expansion before concluding tampering. |
+| `2` | Inconclusive — bad arguments, or nothing signed found to read | Point it at an expanded `.app`. |
+
+---
+
+## `lib/artifact-facts.sh` — the one fact collector
+
+`phase4-artifact.sh` and `verify-known-artifact.sh --record` **share this
+file**. That is the whole point: the evidence quoted in an audit report and the
+baseline stored for future drift checks are produced by the same code, so they
+cannot describe the same artifact differently. If they could drift apart, the
+disagreement would surface during the update that mattered.
+
+The library is sourced, never run. It also holds the rule about what may be
+recorded: **only facts that travel with the file.** Ownership and installed
+launchd jobs are assigned at install time, so they live in the `--system-*`
+modes instead.
+
+### `tests/artifact-facts-tests.sh` — prove the instruments still see
+
+```bash
+scripts/tests/artifact-facts-tests.sh                 # picks a signed app itself
+scripts/tests/artifact-facts-tests.sh /Applications/Some.app
+```
+
+**Run this after any change to the collector or the comparator.** A
+silently-broken collector is this project's recurring failure mode, and the
+battery exists because every case asserts an **exact count** rather than the
+presence of an expected string — a detector that fires once among 28 false
+alarms passes a presence test.
+
+It also validates its own fixtures before trusting them. Three hand-built
+fixtures gave misleading results while this was being written: one deleted all
+29 entitlement lines instead of one, one was a stale file from an earlier run,
+and one removed a key from a single source file when the comparison takes the
+union across all of them. Each would have been read as a finding about the code.
+
+> **Three real defects this battery caught**, all of which produced output that
+> looked clean:
+> 1. BSD `grep` rejects a `{0,400}` repetition (the cap is 255). The error went
+>    to stderr, a `2>/dev/null` swallowed it, and a bundle with a CDN `<script
+>    src>` reported **no remote loaders**. The detector now self-tests against a
+>    known-positive string before reporting.
+> 2. `sort` honours locale collation while `comm` compares bytes. Under
+>    `en_US.UTF-8` they disagree, `comm` desynchronises, and it reports unrelated
+>    lines as drift. Both scripts now force `LC_ALL=C` and assert byte order
+>    before comparing.
+> 3. `plutil` writes its parse error to **stdout**, so a component with *no*
+>    entitlements had `"Cannot parse a NULL or zero-length data"` recorded **as an
+>    entitlement** — making "asks for nothing" and "could not be read"
+>    indistinguishable. Five such records reached a committed baseline. The
+>    collector now checks for content before parsing, and the comparator ignores
+>    those records in baselines that already contain them.
+
+---
+
 ## `verify-known-artifact.sh` — has an approved artifact drifted?
 
 **The problem it solves.** Approval applies to the **exact version you reviewed**

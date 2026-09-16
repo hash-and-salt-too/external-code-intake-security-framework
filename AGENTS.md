@@ -65,10 +65,13 @@ install, build, or run the code under review.
   Update audits (a new version of something already accepted) have their own
   workflow in `docs/05-update-audit.md` — far cheaper than a first intake.
 - `scripts/` — helpers. The top-level ones are **read-only** evidence gatherers
-  (intake triage/cost forecast; build-feasibility preflight; known-artifact drift
-  check). `scripts/phase5-kit/` is the runtime probe kit used *inside an isolated
-  test account* — it creates decoys, snapshots and probe files, but never installs,
-  builds, or runs the code under review.
+  (intake triage/cost forecast; build-feasibility preflight; Phase 4 artifact
+  evidence; known-artifact drift check). Phase 4 and the drift baseline share
+  **one** collector, `scripts/lib/artifact-facts.sh`, so audit evidence and
+  stored baselines cannot diverge; re-run `scripts/tests/artifact-facts-tests.sh`
+  after touching it. `scripts/phase5-kit/` is the runtime probe kit used *inside
+  an isolated test account* — it creates decoys, snapshots and probe files, but
+  never installs, builds, or runs the code under review.
 - `tools/` — repo maintenance utilities that act only on **this repo's own
   files** (e.g. generating printable checklists); never touch reviewed code.
 - `reports/` — one decision record per audited item (fast-lane items get a
