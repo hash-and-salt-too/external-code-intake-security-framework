@@ -80,6 +80,9 @@ spctl -a -vvv <app>                    # assess an app (expect: accepted, source
 spctl -a -vvv -t install <installer>   # assess a .pkg/.dmg installer
 stapler validate <app-or-dmg>          # confirm the notarization ticket is stapled
 ```
+
+> ℹ️ **`spctl -a` reaches the network — measured, not assumed.** On macOS 15.7.9 it drove `syspolicyd` to open three outbound TLS connections, reproducibly, for both an Apple system app and a notarized Developer ID app — the latter also triggering OCSP revocation lookups. `codesign --verify` and `stapler validate` produced none. **Assessing a file sitting in `quarantine/` can therefore signal to a third party that you hold it.** Measurement, controls and limits: [`../../scripts/README.md`](../../scripts/README.md).
+
 - [ ] Expect **"accepted"** and a **Notarized Developer ID** source.
 - [ ] **"rejected"** or unsigned/un-notarized, for software that will run automatically or with privileges, is a serious finding.
 

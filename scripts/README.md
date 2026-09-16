@@ -15,6 +15,58 @@ on **execution**, and a **human still owns every decision** (see
 > "clean," the check must either carry a calibration step that proves it can see
 > a known positive, or not be automated at all.
 
+### What "read-only" does not cover
+
+Read-only here means these scripts **do not change your machine or the code
+under review**, and **compose no network request of their own**. Every URL in
+their output is printed for you to visit, never fetched.
+
+It does **not** mean nothing reaches the network. **`spctl -a` does.** Measured
+2026-09-16 on macOS 15.7.9 (24G830, x86_64), each command run in isolation:
+
+| Command | Apple system app | Notarized Developer ID app |
+|---|:--:|:--:|
+| `codesign --verify --deep --strict` | 0 TLS | not tested |
+| `xcrun stapler validate` | 0 TLS | not tested |
+| **`spctl -a -vvv`** | **3 TLS** | **3 TLS, 3 OCSP** |
+
+`spctl` does not evaluate trust itself — it hands off to `syspolicyd`, which
+opened three TLS connections (`connect_time(55ms)`, `rtt(24ms)`, `alpn(h3)`). It
+reproduced on a second run three minutes later, so this is not a one-off that
+then caches.
+
+The real-world subject cost **more**, not less. Against a notarized Developer ID
+app, `trustd` produced **606** records versus **57** for the Apple system app,
+added OCSP revocation lookups the Apple app never triggered, and took **3
+seconds** rather than under one.
+
+**Why this matters here:** `collect_facts()` calls `spctl -a` on every artifact,
+so Phase 4 evidence collection, baseline recording, drift checks and the test
+battery all reach the network. **Assessing a file in `quarantine/` can signal to
+a third party that you hold it.** For most intake work that is irrelevant; if you
+are reviewing something you would rather not announce, it is not.
+
+**What the measurement does not establish.** The destination host was not
+identified. `codesign` and `stapler` were tested only against the Apple system
+app, so their zero is evidence about that subject on this machine, not proof
+that they never connect.
+
+<details>
+<summary>Controls — including the one that failed silently</summary>
+
+`syspolicyd` logged **0** records in two windows where nothing was run, so 350
+records during `spctl` is signal rather than background. Log visibility was
+proven independently: a known-good TLS connection produced 55 `trustd` records,
+so a zero would have meant "no traffic," not "blind instrument."
+
+One control was initially void **and looked clean**. `set -- $w` inside a `for`
+loop does not word-split in zsh as it does in bash, so `log show` received a
+malformed time range, exited **64**, and printed `0 records` — indistinguishable
+from "no background traffic." It was caught only because the exit code was read
+on the line immediately after the command. Every later query gates on `rc`
+before reporting any count.
+</details>
+
 ---
 
 ## `intake-triage.sh` — do I even need this, and what will it cost?
@@ -401,11 +453,13 @@ a point release. Identical hashes mean you compared something to itself.
 
 ### Why it's safe to run
 
-It only ever *reads*: `codesign`, `spctl`, `stapler`, `otool` and `file` are
-inspection tools. The script **does not mount disk images, install, launch or
-execute anything** — you mount read-only yourself, so the one action with any
-attack surface stays an explicit human step. It writes nothing except the
-baseline you redirect to a file.
+It only ever *reads* the artifact: `codesign`, `spctl`, `stapler`, `otool` and
+`file` are inspection tools. The script **does not mount disk images, install,
+launch or execute anything** — you mount read-only yourself, so the one action
+with any attack surface stays an explicit human step. It writes nothing except
+the baseline you redirect to a file, and composes no network request — though
+`codesign`/`spctl` can still make macOS contact Apple, per
+[what "read-only" does not cover](#what-read-only-does-not-cover).
 
 > **This is a Tier 1 check, not an audit.** It answers *"did the trust anchor or
 > the privilege change?"* — not *"is this version safe?"* Nothing here replaces

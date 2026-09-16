@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Read-only drift check for a previously-audited macOS artifact.
 # Records, or compares against, the signing/privilege invariants established at audit time.
-# It never installs, launches, mounts, modifies or executes the artifact.
+# It never installs, launches, mounts, modifies or executes the artifact, and
+# composes no network request of its own — but its spctl check reaches the
+# network (measured 2026-09-16). See "What read-only does not cover" in
+# scripts/README.md.
 set -uo pipefail
 
 # Byte collation, not locale collation: sort and comm must agree or comm

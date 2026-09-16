@@ -9,6 +9,10 @@
 # It never mounts, expands, installs, launches or executes anything. Where an
 # action is needed, it prints the exact command for a human to run.
 #
+# It composes no network request of its own, but its spctl check reaches the
+# network — measured 2026-09-16. See "What read-only does not cover" in
+# scripts/README.md.
+#
 # It emits FACTS. It does not emit a verdict, and a quiet run is not approval.
 set -uo pipefail
 

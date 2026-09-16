@@ -8,7 +8,10 @@
 # find out until the update that mattered.
 #
 # It only reads: codesign, spctl, stapler, otool, file, find, PlistBuddy.
-# It does not mount, expand, install, launch or execute anything.
+# It does not mount, expand, install, launch or execute anything, and composes
+# no network request of its own. The spctl call DOES reach the network: measured
+# 2026-09-16, it drives syspolicyd to open outbound TLS, so assessing a
+# quarantined file can signal that you hold it. See scripts/README.md.
 #
 # Output format is one fact per line: <kind><TAB><value>, sorted.
 # Per-component facts encode their subject as "<relative-path>|<value>".
