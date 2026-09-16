@@ -450,6 +450,72 @@ it is not. Without the second, a bug that hid everything would pass.
 
 ---
 
+## `phase3-defaults-vs-docs.sh` — does the code ship what the docs promise?
+
+**The problem it solves.** In this framework's worked example the project's
+README said *"by default, HTML tags are stripped and unsafe links are replaced
+by empty strings"*, while the source shipped `unsafeHTMLOption = true`. The
+README accurately described the **upstream library's** default; the application
+overrode it. A divergence like that, on a security-relevant default, is a
+finding in its own right — and it is invisible unless the two are put side by
+side.
+
+```bash
+scripts/phase3-defaults-vs-docs.sh quarantine/proj
+scripts/phase3-defaults-vs-docs.sh quarantine/proj --docs docs/ --keyword frobnication
+```
+
+### It extracts and pairs. It never judges.
+
+Deciding whether *"stripped by default"* contradicts `unsafeHTML = true` is
+reading comprehension, not pattern matching. A heuristic verdict here would be
+exactly the confident wrong answer this repo refuses to produce, so the script
+prints candidates side by side and says plainly that a human must read them.
+
+It reports **both directions**, because they are different findings:
+
+- a documented claim paired with a declared default → *compare these*
+- a security-relevant default **no documentation mentions** → an undocumented
+  default is a finding on its own
+
+### Two self-tests, in opposite directions
+
+| Self-test | Prevents |
+|---|---|
+| The extractor must match a known-positive declaration | A pattern matching nothing produces an empty report, and an empty report reads as "no divergence" |
+| The keyword filter must **reject** a non-security declaration | A filter matching everything buries the real finding under window sizes and line numbering |
+
+Either failure stops the run at exit 2 rather than printing a clean-looking
+list. An empty result also says whether the cause is the project or the word
+list — check with `--list-keywords`, extend with `--keyword`.
+
+### What it tells you
+
+| Exit | Meaning |
+|:----:|---------|
+| `0` | Evidence collected and paired |
+| `2` | Inconclusive: no source read, no documentation read, or a self-test failed |
+
+It **never exits 1**, deliberately. Whether a claim and a default actually
+disagree is a judgement, so there is no mechanically determinable blocking fact
+for this check to report.
+
+### `tests/phase3-defaults-vs-docs-tests.sh` — 31 assertions
+
+The main fixture reconstructs finding 23. Mutation-verified against an unmutated
+control run:
+
+| Deliberate break | Failures | How it was caught |
+|---|:--:|---|
+| Keyword filter matches everything | 15 | the script's own negative self-test refused to report |
+| Inconclusive downgraded to clean | 2 | the two exit-code assertions |
+
+> **Not built, on purpose:** the Phase 3 A–J category sweeps. They found nothing
+> in the real audit and carry a known false-positive problem, so automating them
+> would add noise and a false sense of coverage.
+
+---
+
 ## `phase4-artifact.sh` — Phase 4 evidence, gathered in one pass
 
 **The problem it solves.** Phase 4 is the most script-ready phase in the
