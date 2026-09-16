@@ -59,6 +59,27 @@ install, build, or run the code under review.
 - Ask before large or structural changes.
 - This is a **public** repo: keep organization-specific details out of it.
 
+## Running commands here (read before typing a command)
+
+The largest risk in this repo is **not** the committed scripts — those are
+read-only and tested. It is an assistant improvising shell commands in the
+maintainer's terminal, often hours into a session when attention is lowest.
+The human approving those commands is the last line of defence, and a tiring
+one. Write commands a tired reader can safely approve.
+
+- **Never create, modify, copy or delete anything under `/Applications`,
+  `$HOME`, or `/Users/Shared`.** Inspect in place. If a fixture needs a real
+  bundle, copy the smallest part that answers the question, into `scratch/`.
+- **Scratch goes in `scratch/`** (git-ignored), never `/tmp`, so leftovers
+  stay visible in the workspace instead of accumulating unseen.
+- **No `rm -rf` with a variable in the path.** Delete a literal path under
+  `scratch/`, or let a script's own `mktemp -d` + EXIT trap do it.
+- **Never auto-select a subject from installed apps.** A "first match in
+  /Applications" rule once picked a password manager.
+- **Capture `$?` on the very next line.** `cmd | tail` reports *tail's* status
+  and `printf '%s' "$(basename x)" "$?"` reports *basename's* — both have
+  already produced false "verified, exit 0" results in this repo.
+
 ## Repo map
 
 - `docs/` — the framework: scope, phases, checklists, templates, worked example.
