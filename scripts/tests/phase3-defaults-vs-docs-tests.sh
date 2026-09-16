@@ -71,6 +71,12 @@ has "the security-relevant default is extracted"  "$OUT" 'unsafeHTMLOption'
 has "a second security-relevant default is extracted" "$OUT" 'validateUTFOption'
 has "the documented claim is extracted"           "$OUT" 'HTML tags are stripped'
 
+# A bare count let self-contamination go unnoticed during QA: run inside a tree
+# holding this script's own output, the scanner read that output back as
+# documentation. Naming the files makes it visible at a glance.
+has "the documentation files read are NAMED, not just counted" "$OUT" 'README.md'
+has "and introduced as what was read"             "$OUT" 'read:'
+
 # NEGATIVE CONTROL: without this, a filter that matched everything would pass
 # every assertion above while making all projects look alarming.
 hasnt "a non-security boolean is NOT extracted"   "$OUT" 'showLineNumbers'

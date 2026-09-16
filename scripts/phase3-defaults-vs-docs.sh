@@ -131,7 +131,8 @@ echo "--- Security-relevant defaults declared in source -------------------"
 find "$SRC" -type f \( -name '*.swift' -o -name '*.m' -o -name '*.mm' \
      -o -name '*.h' -o -name '*.c' -o -name '*.cpp' -o -name '*.js' \
      -o -name '*.ts' -o -name '*.py' -o -name '*.rb' -o -name '*.go' \
-     -o -name '*.rs' -o -name '*.java' -o -name '*.kt' \) \
+     -o -name '*.rs' -o -name '*.java' -o -name '*.kt' \
+     -o -name '*.sh' -o -name '*.bash' -o -name '*.zsh' \) \
      -not -path '*/.git/*' 2>/dev/null | LC_ALL=C sort > "$WORK/srcfiles.txt"
 src_n=$(grep -c . "$WORK/srcfiles.txt" | tr -d ' ')
 
@@ -191,6 +192,15 @@ claim_n=$(grep -c . "$WORK/claims.txt" | tr -d ' ')
 
 echo "  documentation files  : $doc_n"
 echo "  default claims found : $claim_n"
+# Named, not just counted. A bare count hid a real problem during QA: run in a
+# tree that already contains this script's own output, the scanner read those
+# files back as documentation and inflated the claim count. Whatever is listed
+# here is what the claims below came from — if something does not belong,
+# narrow it with --docs.
+if [[ "$doc_n" -gt 0 ]]; then
+  echo "  read:"
+  sed 's|^|      |' "$WORK/docfiles.txt"
+fi
 if [[ "$doc_n" -eq 0 ]]; then
   echo "  $WARN No documentation was read, so nothing can be compared against."
   echo "      Point at it with --docs. An unread README is not a silent pass."

@@ -962,6 +962,16 @@ A third, deliberately *different* canary belongs to calibration alone, so that
 `00-calibrate.sh` never depends on `01-setup.sh` having run and never leaves an
 artefact that could be mistaken for real evidence.
 
+### The kit, in running order
+
+| Script | Does |
+|---|---|
+| `00-calibrate.sh` | Proves the instruments can see, before you rely on them |
+| `01-setup.sh` | Plants canary decoys, takes the "before" snapshot, writes probe files |
+| `02-capture.sh` | Takes the "after" snapshot and diffs it for persistence |
+| `03-check-canary.sh` | Searches rendered output for the canaries, plain and base64 |
+| `mark.sh` | Records a real clock reading against a label, so timings are measured rather than estimated |
+
 ### `tests/phase5-kit-common-tests.sh` — 35 assertions
 
 `HOME` is redirected to a temporary directory before any kit script is invoked,
