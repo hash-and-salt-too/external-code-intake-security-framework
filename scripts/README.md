@@ -309,6 +309,65 @@ union across all of them. Each would have been read as a finding about the code.
 
 ---
 
+## `lib/advisory-query.sh` — the one advisory classifier
+
+Sourced, never run. Turns a raw OSV response into classified facts, so a Phase 1
+reputation check and a Phase 2 dependency check can never describe the same
+advisory picture differently.
+
+**Two real misses shaped it**, both from the QLMarkdown audit:
+
+- **Wrong ecosystem.** Three "unfixed" `cmark-gfm` advisories were `UBUNTU-CVE-`
+  records about Ubuntu's *distribution packages*. For a C library vendored as
+  source into a macOS app they do not apply at all. Distro records are counted
+  and named, never dropped silently — the filtering has to stay auditable.
+- **Duplicate CVE.** `CVE-2024-22051` is the same defect as `CVE-2022-24724`,
+  re-issued by a different CNA. Counting IDs instead of defects inflated one bug
+  into two, so records are de-duplicated into **alias groups**.
+
+`related` links are reported but **never merged automatically** — "related" does
+not reliably mean "same defect," and silently merging would trade one counting
+error for the opposite one. The human decides; the script surfaces the link.
+
+### Zero is not a pass
+
+A failed API call returns nothing, and nothing reads as "no advisories found."
+Four outcomes are kept distinct:
+
+| Situation | Reported as |
+|---|---|
+| Query not attempted (offline) | `NOT CHECKED` |
+| Empty body, malformed JSON, unreadable | **`INCONCLUSIVE`**, exit 2 |
+| Valid `{}` no-match response | zero records **plus a demand for calibration** |
+| Records returned | classified counts and groups |
+
+> ⚠️ A zero only becomes evidence once a **calibration query against a
+> known-vulnerable version** has returned a positive through the same code path.
+> The library states this every time rather than trusting the caller to remember.
+
+**`jq` is required and there is no fallback.** It ships at `/usr/bin/jq` on
+macOS 15+. `plutil` is explicitly rejected as a substitute: it writes parse
+errors to *stdout*, so an unreadable response would arrive looking like data.
+
+### `tests/advisory-query-tests.sh` — 28 offline assertions
+
+Fixtures only; no network, no external code. The load-bearing tests are the
+**negative controls**, because the positive ones can be satisfied by broken code:
+
+- a filter that drops *everything* looks identical to a clean result, so one test
+  proves records **survive** the filter as well as one proving they are removed;
+- a grouper that merges *everything* would satisfy any "these two ended up
+  together" test, so one test proves two unrelated defects stay **apart**.
+
+Verified by mutation — the suite was shown to go **red**, not merely green:
+
+| Deliberate break | Result |
+|---|---|
+| Filter classifies every record as distro | 10 failures, incl. the positive control |
+| Grouper merges every record into one group | 3 failures, incl. the negative control |
+
+---
+
 ## `verify-known-artifact.sh` — has an approved artifact drifted?
 
 **The problem it solves.** Approval applies to the **exact version you reviewed**
