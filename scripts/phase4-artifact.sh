@@ -106,7 +106,10 @@ trap 'rm -rf "$WORK"' EXIT
 FACTS="$WORK/facts.txt"
 collect_facts "$BUNDLE" "$FACTS"
 
-if [[ ! -s "$FACTS" ]]; then
+# Not "is the file non-empty": notarization and gatekeeper records are written
+# for ANY path, so emptiness never happens and that test would pass on a folder
+# with nothing signed in it. Require an actual signed component.
+if [[ "$(awk -F'\t' '$1=="component"' "$FACTS" | grep -c .)" -eq 0 ]]; then
   echo "$STOP No signed Mach-O components found in: $BUNDLE"
   echo "$INFO Point this at an expanded .app bundle, not at an archive or an"
   echo "  unmounted disk image. Expand it yourself first with ditto -x -k."

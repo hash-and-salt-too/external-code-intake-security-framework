@@ -239,7 +239,11 @@ fi
 
 collect_facts "$BUNDLE" "$WORK/new.txt"
 
-if [[ ! -s "$WORK/new.txt" ]]; then
+# Not "is the file non-empty": notarization and gatekeeper records are written
+# for ANY path, so this file is never empty. Without a component record a
+# baseline would carry no identity anchor at all, and every later drift check
+# against it would report "No drift" while proving nothing.
+if [[ "$(awk -F'\t' '$1=="component"' "$WORK/new.txt" | grep -c .)" -eq 0 ]]; then
   echo "$STOP No signed Mach-O components found in: $BUNDLE"
   echo "$INFO Point this at an .app bundle, not a disk image or an archive."
   exit 2

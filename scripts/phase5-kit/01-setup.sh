@@ -25,14 +25,31 @@ if id -Gn "$(id -un)" | tr ' ' '\n' | grep -qx admin; then
 fi
 echo "[ok] Account '$(id -un)' is not an administrator."
 
-# --- Refuse if a real SSH key is present -------------------------------------
-if [ -s "$HOME/.ssh/id_rsa" ] && ! grep -q 'CANARY-AUDIT' "$HOME/.ssh/id_rsa" 2>/dev/null; then
-    echo
-    echo "REFUSING TO RUN."
-    echo "$HOME/.ssh/id_rsa already exists and is not a canary file."
-    echo "This account may contain real credentials. Stop and check."
-    exit 1
-fi
+# --- Refuse if anything real sits where a decoy would be written -------------
+# Two decoys are written below. Guarding only one of them leaves the other to
+# be overwritten in silence - the exact class of failure this kit exists to
+# catch in other software. Keep this list and the writes below in step.
+for real in "$HOME/.ssh/id_rsa" "$HOME/.aws/credentials"; do
+    if [ -s "$real" ] && ! grep -q 'CANARY-AUDIT' "$real" 2>/dev/null; then
+        echo
+        echo "REFUSING TO RUN."
+        echo "$real already exists and is not a canary file."
+        echo "This account may contain real credentials. Stop and check."
+        exit 1
+    fi
+done
+
+# A missing id_rsa proves nothing on its own: modern keys are id_ed25519, so a
+# real account full of credentials can pass the check above untouched.
+for k in "$HOME"/.ssh/id_ed25519 "$HOME"/.ssh/id_ecdsa "$HOME"/.ssh/id_dsa; do
+    if [ -s "$k" ]; then
+        echo
+        echo "REFUSING TO RUN."
+        echo "$k exists, so this account holds real SSH credentials."
+        echo "Phase 5 must run in a clean, disposable isolation account."
+        exit 1
+    fi
+done
 
 mkdir -p "$PROBE" "$BASE" "$OUT" 2>/dev/null
 

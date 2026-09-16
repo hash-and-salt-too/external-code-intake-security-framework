@@ -22,7 +22,8 @@ export LC_ALL=C
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 VERIFY="$SCRIPT_DIR/verify-known-artifact.sh"
 PHASE4="$SCRIPT_DIR/phase4-artifact.sh"
-TEST_ROOT="$(mktemp -d)"
+TEST_ROOT="$(mktemp -d)" || { echo "Could not create a temporary directory."; exit 2; }
+[[ -n "$TEST_ROOT" && -d "$TEST_ROOT" ]] || { echo "mktemp returned nothing."; exit 2; }
 trap 'rm -rf "$TEST_ROOT"' EXIT
 PASS_COUNT=0; FAIL_COUNT=0; SKIP_COUNT=0
 
@@ -167,6 +168,20 @@ assert_eq "schema 1: newer record kinds not reported as drift" "0" "$s1_rc"
 ( unset LC_ALL; . "$SCRIPT_DIR/lib/artifact-facts.sh"
   LC_ALL=en_US.UTF-8 artifact_facts_require_collation 2>/dev/null ) && guard_rc=0 || guard_rc=1
 assert_eq "collation guard rejects a non-C locale" "1" "$guard_rc"
+
+# --- 6b. a bundle with nothing signed in it must be refused --------------
+# gatekeeper and notarization records are written for any path, so a
+# "non-empty fact file" test passes on a folder containing no binary at all.
+# Recording that as a baseline would store no identity anchor, and every
+# later drift check against it would report "No drift" while proving nothing.
+EMPTY="$TEST_ROOT/NoBinary.app"
+mkdir -p "$EMPTY/Contents/MacOS"
+printf '#!/bin/sh\necho hi\n' > "$EMPTY/Contents/MacOS/script"
+chmod +x "$EMPTY/Contents/MacOS/script"
+"$VERIFY" --record "$EMPTY" >/dev/null 2>&1
+assert_eq "no signed component: --record refuses to write a baseline" "2" "$?"
+"$PHASE4" "$EMPTY" >/dev/null 2>&1
+assert_eq "no signed component: phase4 reports inconclusive" "2" "$?"
 
 # --- 7. phase4: published hash comparison --------------------------------
 # --archive is hashed independently of the bundle, so this needs *a file*, not
