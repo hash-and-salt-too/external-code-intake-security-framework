@@ -1,12 +1,20 @@
 #!/bin/bash
-# Phase 5 canary check - QLMarkdown v1.5.0 intake review
-# Searches rendered HTML output for the canary strings, in both plain and
-# base64 form. Reads only. Changes nothing.
+# Phase 5 canary check.
+# Searches rendered output for the canary strings, in both plain and base64
+# form. Reads only. Changes nothing.
 
 set -u
 
-KIT="/Users/Shared/phase5-kit"
-OUT="$KIT/out"
+DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck source=kit-common.sh
+. "$DIR/kit-common.sh" || exit 2
+kit_parse_common "$@" || exit 2
+if [ "$KIT_HELP" -eq 1 ]; then
+    echo "Usage: 03-check-canary.sh [options]"; echo; kit_common_options; exit 0
+fi
+kit_validate_common || exit 2
+
+OUT=$(kit_out)
 PROBE="$HOME/probe"
 RENDERED="$PROBE/rendered-canary.html"
 
@@ -19,14 +27,14 @@ if [ ! -f "$RENDERED" ]; then
     echo "ERROR: no rendered output found at:"
     echo "  $RENDERED"
     echo
-    echo "Produce it first with the bundled command line tool. The two flags"
-    echo "matter - without them the tool will not exercise the code path we are"
-    echo "testing, and you would get a false all-clear:"
+    echo "Produce it first with the artifact's own rendering path. If it has"
+    echo "options that control raw HTML or inline images, turn them ON - without"
+    echo "them you will not exercise the code path under test and would get a"
+    echo "false all-clear. Write the result to:"
     echo
-    echo '  ~/Applications/QLMarkdown.app/Contents/Resources/qlmarkdown_cli \'
-    echo '      --raw-html on --inline-images on \'
-    echo "      -o $RENDERED \\"
-    echo "      $PROBE/03-traversal-canary.md"
+    echo "      $RENDERED"
+    echo
+    echo "  using probe file: $PROBE/03-traversal-canary.$KIT_EXT"
     exit 1
 fi
 
@@ -35,8 +43,11 @@ if [ ! -f "$HOME/.ssh/id_rsa" ]; then
     exit 1
 fi
 
-CANARY_SSH='CANARY-AUDIT-7F3A-NOT-A-REAL-KEY'
-CANARY_AWS='CANARY-AUDIT-9B2C-NOT-REAL-CREDS'
+# Defined in kit-common.sh. These MUST be the same strings 01-setup.sh planted:
+# two separate copies could drift, and this script would then search for a
+# string that was never written and report that as a clean result.
+CANARY_SSH="$KIT_CANARY_SSH"
+CANARY_AWS="$KIT_CANARY_AWS"
 B64_SSH=$(base64 -i "$HOME/.ssh/id_rsa" | tr -d '\n')
 B64_AWS=$(base64 -i "$HOME/.aws/credentials" | tr -d '\n')
 

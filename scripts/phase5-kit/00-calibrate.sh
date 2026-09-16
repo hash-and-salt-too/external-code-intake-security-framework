@@ -24,51 +24,28 @@ set -u
 
 OK="[ok]"; BAD="[XX]"; WARN="[!!]"; INFO="[--]"
 
-KIT_ROOT="${ECISF_KIT_ROOT:-$HOME/ecisf-phase5}"
-PORT="${ECISF_LISTENER_PORT:-8000}"
+DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck source=kit-common.sh
+. "$DIR/kit-common.sh" || exit 2
 
 usage() {
     cat <<'EOF'
 Usage:
   scripts/phase5-kit/00-calibrate.sh [options]
 
-Options:
-  --kit-root <dir>   Where the kit reads and writes. Default $HOME/ecisf-phase5.
-                     For CROSS-ACCOUNT evidence (isolation account writes, admin
-                     account reads) pass a shared path explicitly, e.g.
-                     --kit-root /Users/Shared/ecisf-phase5. That is deliberately
-                     not the default: writing outside your own home should be a
-                     decision, not an accident.
-  --listener-port N  Port the local evidence listener is on. Default 8000.
-  -h, --help         Show this message.
-
 Exit codes (they describe findings, never approval):
   0  Every instrument proved it can see a known positive.
   1  Stop: this is an administrator account, or it holds real credentials.
   2  At least one instrument is blind. Its blind spot is named; decide
      whether to proceed without it.
+
 EOF
+    kit_common_options
 }
 
-while [ $# -gt 0 ]; do
-    case "${1:-}" in
-        -h|--help) usage; exit 0 ;;
-        --kit-root) shift; KIT_ROOT="${1:-}"; shift || true ;;
-        --listener-port) shift; PORT="${1:-}"; shift || true ;;
-        *) echo "$BAD Unrecognised argument: $1"; echo; usage; exit 2 ;;
-    esac
-done
-
-case "$PORT" in
-    ''|*[!0-9]*) echo "$BAD --listener-port must be a number, got: $PORT"; exit 2 ;;
-esac
-
-# Resolved before use: a relative path never matches the "$HOME"/* test below,
-# so it would be reported as cross-account readable when it is not.
-case "$KIT_ROOT" in
-    /*) ;;
-    *) KIT_ROOT="$(pwd)/$KIT_ROOT" ;;
-esac
+kit_parse_common "$@" || { echo; usage; exit 2; }
+if [ "$KIT_HELP" -eq 1 ]; then usage; exit 0; fi
+kit_validate_common || exit 2
 
 STOPNOW=0; BLIND=0
 WORK=$(mktemp -d) || { echo "$BAD Could not create a temporary directory."; exit 2; }
@@ -78,7 +55,7 @@ echo "=============================================================="
 echo " Phase 5 - instrument calibration"
 echo " Account : $(id -un)"
 echo " Kit root: $KIT_ROOT"
-echo " Listener: 127.0.0.1:$PORT"
+echo " Listener: 127.0.0.1:$KIT_PORT"
 echo " Date    : $(date '+%Y-%m-%d %H:%M:%S')"
 echo "=============================================================="
 
@@ -164,12 +141,12 @@ if ! command -v curl >/dev/null 2>&1; then
     BLIND=1
 else
     code=$(curl -s -o /dev/null -m 5 -w '%{http_code}' \
-           "http://127.0.0.1:$PORT/ecisf-calibration" 2>/dev/null)
+           "http://127.0.0.1:$KIT_PORT/ecisf-calibration" 2>/dev/null)
     rc=$?
     if [ "$rc" -ne 0 ]; then
-        echo "$BAD Nothing is listening on 127.0.0.1:$PORT (curl exit $rc)."
+        echo "$BAD Nothing is listening on 127.0.0.1:$KIT_PORT (curl exit $rc)."
         echo "     Start it first, in its own window:"
-        echo "         python3 -m http.server $PORT"
+        echo "         python3 -m http.server $KIT_PORT"
         echo "     The listener is the primary exfiltration oracle. Loopback is"
         echo "     normally unfiltered, so it works regardless of how the"
         echo "     firewall attributes a connection."
@@ -188,7 +165,7 @@ fi
 # "no canary found" would be indistinguishable from "nothing was stolen".
 echo
 echo "--- D. Canary detectability ------------------------------------------"
-CANARY="CANARY-CAL-4D7E-NOT-A-REAL-SECRET"
+CANARY="$KIT_CANARY_CAL"
 printf '%s\n' "$CANARY" > "$WORK/plain.txt"
 printf '%s' "$CANARY" | base64 | tr -d '\n' > "$WORK/encoded.txt"
 B64=$(cat "$WORK/encoded.txt")

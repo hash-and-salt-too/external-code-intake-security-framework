@@ -860,6 +860,54 @@ Mutation-verified against an unmutated control run:
 The listener pair is the point: a check that always says "working" passes the
 positive control alone.
 
-> **Not yet done:** `01-setup.sh` and `02-capture.sh` still hardcode
-> `/Users/Shared/phase5-kit` and are written around the QLMarkdown worked
-> example. Generalising them is the remainder of this task.
+> **Not yet done:** nothing in this kit is artifact-specific any more, but the
+> probe files themselves are still a **Markdown / Quick Look probe pack**.
+> Auditing a different kind of artifact means writing probes for it; the
+> plumbing around them is now reusable.
+
+---
+
+## `phase5-kit/kit-common.sh` — one configuration, one canary
+
+Sourced by every script in the kit. It exists for two separate reasons, and the
+second one is a bug fix rather than a tidy-up.
+
+**Portability.** Every script used to hardcode `/Users/Shared/phase5-kit`, which
+blocked running the kit anywhere else. All of them now take the same options:
+
+| Option | Purpose |
+|---|---|
+| `--kit-root <dir>` | Where the kit reads and writes. Default `$HOME/ecisf-phase5` |
+| `--listener-port <n>` | Local evidence listener. Default 8000 |
+| `--subject <name>` | What is under test, used in headings and logs |
+| `--match <substring>` | How to find the artifact in extension listings |
+| `--group-container <id>` | Application group container to inspect, if any |
+| `--probe-ext <ext>` | Extension given to probe files, so the OS routes them to the right previewer |
+
+**Correctness — the reason this is not cosmetic.** `01-setup.sh` *plants* the
+canary decoys and `03-check-canary.sh` *searches* for them. Those were two
+separate string literals in two files. Had they ever drifted, the check would
+have hunted for a string that was never planted and reported **"canary NOT
+found"** — a false clean, in the single check the Phase 5 finding actually
+turned on. One definition removes the possibility, and a test fails if a second
+copy is ever reintroduced.
+
+A third, deliberately *different* canary belongs to calibration alone, so that
+`00-calibrate.sh` never depends on `01-setup.sh` having run and never leaves an
+artefact that could be mistaken for real evidence.
+
+### `tests/phase5-kit-common-tests.sh` — 35 assertions
+
+`HOME` is redirected to a temporary directory before any kit script is invoked,
+so the suite cannot plant decoys in a real account. Mutation-verified against an
+unmutated control run:
+
+| Deliberate break | Caught by |
+|---|:--:|
+| Duplicate canary literal reintroduced in `03-check-canary.sh` | 1 assertion |
+| Hardcoded `/Users/Shared/phase5-kit` reintroduced in `02-capture.sh` | 1 assertion |
+
+> The canary assertion is source-level on purpose. A behavioural test cannot run
+> `01-setup.sh` to completion from an administrator account — and a reintroduced
+> literal is precisely what would cause the drift, which *is* detectable by
+> reading the file.

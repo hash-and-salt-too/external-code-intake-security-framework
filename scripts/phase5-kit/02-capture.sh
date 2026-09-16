@@ -1,20 +1,25 @@
 #!/bin/bash
-# Phase 5 capture - QLMarkdown v1.5.0 intake review
-# Takes an "after" snapshot, compares it to the baseline, and gathers
-# everything into /Users/Shared/phase5-kit/out/ so it can be read from the
-# admin account. Installs nothing. Touches no network.
+# Phase 5 capture.
+# Takes an "after" snapshot, compares it to the baseline, and gathers everything
+# into the kit's out/ directory so it can be read from another account.
+# Installs nothing. Touches no network.
 
 set -u
 
-KIT="/Users/Shared/phase5-kit"
-OUT="$KIT/out"
+DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck source=kit-common.sh
+. "$DIR/kit-common.sh" || exit 2
+kit_parse_common "$@" || exit 2
+if [ "$KIT_HELP" -eq 1 ]; then
+    echo "Usage: 02-capture.sh [options]"; echo; kit_common_options; exit 0
+fi
+kit_validate_common || exit 2
+
+OUT=$(kit_out)
 BASE="$HOME/baseline"
 AFTER="$HOME/after"
 
-echo "=============================================================="
-echo " Phase 5 capture - QLMarkdown 1.5.0"
-echo "=============================================================="
-echo
+kit_banner "Phase 5 capture"
 
 if [ ! -d "$BASE" ]; then
     echo "ERROR: no baseline found at $BASE"
@@ -45,11 +50,20 @@ DIFF_STATUS=$?
 # pluginkit, not qlmanage: modern Quick Look extensions are app extensions and
 # do not appear in qlmanage's legacy plugin list.
 pluginkit -m -p com.apple.quicklook.preview > "$OUT/quicklook-extensions.txt" 2>&1
-pluginkit -m 2>/dev/null | grep -i qlmarkdown >> "$OUT/quicklook-extensions.txt" 2>&1
-ls -la "$HOME/Library/Group Containers/group.org.sbarex.qlmarkdown/" \
-    > "$OUT/sbarex-container.txt" 2>&1
-ls -la "$HOME/Library/Group Containers/group.org.sbarex.qlmarkdown/js/" \
-    >> "$OUT/sbarex-container.txt" 2>&1
+if [ -n "$KIT_MATCH" ]; then
+    pluginkit -m 2>/dev/null | grep -i -- "$KIT_MATCH" >> "$OUT/quicklook-extensions.txt" 2>&1
+else
+    echo "(no --match given, so no artifact-specific extension search was made)" \
+        >> "$OUT/quicklook-extensions.txt"
+fi
+if [ -n "$KIT_GROUP" ]; then
+    ls -la "$HOME/Library/Group Containers/$KIT_GROUP/" \
+        > "$OUT/group-container.txt" 2>&1
+    ls -la "$HOME/Library/Group Containers/$KIT_GROUP/js/" \
+        >> "$OUT/group-container.txt" 2>&1
+else
+    ls -la "$HOME/Library/Group Containers/" > "$OUT/group-container.txt" 2>&1
+fi
 ls -la "$HOME/Applications/" > "$OUT/applications-folder.txt" 2>&1
 cp "$HOME/probe/canaries.txt" "$OUT/canaries.txt" 2>/dev/null
 rm -rf "$OUT/baseline" "$OUT/after" 2>/dev/null   # ecisf-allow: $OUT is the hardcoded kit root, never user input
@@ -78,7 +92,7 @@ else
     sed 's/^/    /' "$OUT/persistence-diff.txt"
     echo
     echo "  Some differences are harmless - the Quick Look plugin list SHOULD"
-    echo "  now contain QLMarkdown, because you installed it."
+    echo "  now contain $KIT_SUBJECT, because you installed it."
     echo
     echo "  Anything else is a finding. In particular:"
     echo "    - a NEW launch agent or launch daemon"

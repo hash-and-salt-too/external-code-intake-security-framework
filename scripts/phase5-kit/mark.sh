@@ -1,35 +1,43 @@
 #!/bin/bash
-# Phase 5 timing mark - QLMarkdown v1.5.0 intake review
+# Phase 5 timing mark.
 #
 # Records a real clock reading against a label, so the reviewer never has to
 # do arithmetic and never has to switch accounts mid-task just to report a
 # time. Reads the system clock; never estimates.
 #
-#   bash /Users/Shared/phase5-kit/mark.sh prep-start
+#   bash mark.sh prep-start [--kit-root <dir>]
 
 set -u
 
-KIT="/Users/Shared/phase5-kit"
-OUT="$KIT/out"
+DIR=$(cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck source=kit-common.sh
+. "$DIR/kit-common.sh" || exit 2
+kit_parse_common "$@" || exit 2
+kit_validate_common || exit 2
+
+OUT=$(kit_out)
 LOG="$OUT/timestamps.txt"
 
 usage() {
-    echo "Usage:  bash $KIT/mark.sh <label>"
+    echo "Usage:  bash mark.sh <label> [--kit-root <dir>]"
     echo
     echo "Labels:"
-    echo "   prep-start    before you open the three Terminal windows"
+    echo "   prep-start    before you open the instrument windows"
     echo "   prep-end      when 01-setup.sh prints READY"
-    echo "   exec-start    at STEP 3a, copying the app in"
-    echo "   exec-end      after STEP 7, listener log saved"
+    echo "   exec-start    when you begin installing the artifact"
+    echo "   exec-end      when the listener log is saved"
     echo "   pause         any time you step away"
     echo "   resume        when you come back"
+    echo
+    kit_common_options
 }
 
-if [ $# -ne 1 ]; then
+if [ "$KIT_HELP" -eq 1 ] || [ -z "$KIT_POSITIONAL" ]; then
     usage
+    [ "$KIT_HELP" -eq 1 ] && exit 0
     exit 1
 fi
-LABEL="$1"
+LABEL="$KIT_POSITIONAL"
 
 case "$LABEL" in
     prep-start|prep-end|exec-start|exec-end|pause|resume) ;;
