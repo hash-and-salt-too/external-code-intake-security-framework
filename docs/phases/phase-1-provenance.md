@@ -6,6 +6,17 @@ This is the cheapest phase and it rejects most bad downloads before you spend ef
 
 > **Remember:** popularity is *context*, not proof. The goal is to gather **multiple independent signals**, not to find one green light.
 
+> 🔧 **A helper now gathers the mechanical half of this phase:**
+> [`../../scripts/phase1-provenance.sh`](../../scripts/phase1-provenance.sh). It reports
+> fork status, licence, pulse numbers, account age, security posture and — the
+> part that is easy to get confidently wrong — what commit a release tag
+> *actually* resolves to. **Read this page anyway.** The script deliberately
+> leaves the questions this phase really turns on unanswered, because they are
+> not computable: how you arrived here, whether the maintainer reads as a
+> careful engineer, whether a missing `SECURITY.md` is acceptable for *this*
+> project, and whether to pin the newest release or a longer-exposed older one.
+> A script would answer that last one "newest" and be wrong.
+
 ---
 
 ## 1.1 Confirm you're at the *real* project

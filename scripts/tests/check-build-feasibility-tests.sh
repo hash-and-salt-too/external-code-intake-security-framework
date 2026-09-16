@@ -149,5 +149,12 @@ make_package "$TEST_ROOT/path with spaces" 5.7
 run_case "source path may contain spaces" 0 "NO DECLARED COMPATIBILITY BLOCKER FOUND" \
   bash "$CHECKER" "$TEST_ROOT/path with spaces"
 
+# --help used to be consumed as a positional folder name, so asking for help
+# reported "Folder not found: --help" and exited 2.
+run_case "--help is help, not a folder name" 0 "Usage: scripts/check-build-feasibility.sh" \
+  bash "$CHECKER" --help
+run_case "-h is help too" 0 "Usage: scripts/check-build-feasibility.sh" \
+  bash "$CHECKER" -h
+
 printf '\n%s passed; %s failed\n' "$PASS_COUNT" "$FAIL_COUNT"
 [[ "$FAIL_COUNT" -eq 0 ]]

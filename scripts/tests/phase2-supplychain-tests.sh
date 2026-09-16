@@ -50,8 +50,8 @@ EOF
 
 cat > "$R/Package.resolved" <<'EOF'
 {"pins":[
- {"identity":"sparkle","location":"https://github.com/sparkle-project/Sparkle","state":{"revision":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","version":"2.9.1"}},
- {"identity":"yams","location":"https://github.com/jpsim/Yams","state":{"revision":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","version":"6.2.1"}},
+ {"identity":"sparkle","location":"https://example.invalid/sparkle","state":{"revision":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","version":"2.9.1"}},
+ {"identity":"yams","location":"https://example.invalid/yams","state":{"revision":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","version":"6.2.1"}},
  {"identity":"floaty","location":"https://example.invalid/floaty","state":{"branch":"main"}}
 ]}
 EOF
@@ -127,6 +127,9 @@ has "gitlink with no .gitmodules entry is flagged" "$OUT1" 'deps/orphan'
 has "declared submodule with no gitlink is flagged" "$OUT1" "declares 'ghost'"
 has "unpinned SwiftPM dependency flagged" "$OUT1" 'carry no immutable revision'
 has "pinned dependency listed with its revision" "$OUT1" 'sparkle'
+# SwiftPM pins used to be parsed AFTER the probe and advisory sections, so their
+# revisions were listed and then never asked about. They are pins like any other.
+has "SwiftPM pins are parsed before the pin sections" "$OUT1" 'belongs in the same two questions\|SwiftPM pins (Package.resolved)'
 has "legacy targets counted" "$OUT1" 'PBXLegacyTarget entries        : 2'
 has "run-script build phase counted" "$OUT1" 'PBXShellScriptBuildPhase count : 1'
 has "non-standard build file recovered from the build system" "$OUT1" 'MakefilePCRE'
@@ -247,6 +250,17 @@ hasnt "a refused URL never reports a retrievable commit" "$OUT9" 'RETRIEVABLE'
 is "hostile fixture does not exit 0" "yes" "$([[ "$RC9" -ne 0 ]] && echo yes || echo no)"
 is "no side effect was produced by the ext:: payload" "no" \
    "$([[ -e "$WORK/pwned-marker" ]] && echo yes || echo no)"
+
+# --- SwiftPM revisions must reach the probe, not just the listing ----------
+# example.invalid is reserved by RFC 2606 and never resolves, so this exercises
+# the plan-and-probe path without contacting a real host.
+OUT10=$(ECISF_OSV_URL='http://127.0.0.1:9/v1/query' "$SUT" "$R" --exclude boost --online --probe-pins 2>&1)
+has "the probe plan names a SwiftPM location, not only submodules" \
+    "$OUT10" 'example.invalid/sparkle'
+has "and the SwiftPM pin itself is probed by identity" "$OUT10" 'sparkle'
+has "the section covers pins generally, not just submodules" "$OUT10" 'Pin resolvability'
+has "an unpinned SwiftPM entry is not probed as if it had a revision" \
+    "$OUT10" 'origin UNREACHABLE\|RETRIEVABLE\|no declared origin'
 
 echo "=================================================================="
 echo "passed $PASSED   failed $FAILED"

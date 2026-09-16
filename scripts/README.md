@@ -399,12 +399,12 @@ If calibration fails, **every** advisory result is declared unbelievable and the
 run exits 2. A broken query and a clean dependency both return zero, so the only
 thing separating them is evidence that the path can see a positive.
 
-Pins are queried **by commit**, not by package name. Both submodule gitlinks and
-SwiftPM entries carry an immutable revision, so no name-to-ecosystem guess is
-needed — and a wrong guess would have produced a confident, empty answer.
-
-> **Known limit:** only submodule gitlinks are advisory-queried today. Revisions
-> in `Package.resolved` are listed but not yet queried.
+Pins are queried **by commit**, not by package name. Submodule gitlinks and
+`Package.resolved` entries both carry an immutable revision, so no
+name-to-ecosystem guess is needed — and a wrong guess would have produced a
+confident, empty answer. Both kinds are parsed before the probe and the queries,
+so both are asked the same two questions: *can it still be retrieved*, and *does
+it carry a published advisory*.
 
 ### What it tells you
 
@@ -926,10 +926,12 @@ Mutation-verified against an unmutated control run:
 The listener pair is the point: a check that always says "working" passes the
 positive control alone.
 
-> **Not yet done:** nothing in this kit is artifact-specific any more, but the
-> probe files themselves are still a **Markdown / Quick Look probe pack**.
-> Auditing a different kind of artifact means writing probes for it; the
-> plumbing around them is now reusable.
+> **Bring your own probes.** The built-in probe files are written for a Markdown
+> previewer, because probes are inherently specific to the kind of artifact under
+> test. `--probe-pack <dir>` uses your own instead, substituting `@@PORT@@` and
+> `@@UP@@` so a probe never hardcodes the listener port or its own depth on disk.
+> An **empty** pack is refused: a run with no probes tests nothing and would
+> still produce a clean-looking report.
 
 ---
 

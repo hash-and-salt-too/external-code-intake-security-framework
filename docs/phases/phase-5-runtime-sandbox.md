@@ -4,6 +4,16 @@
 
 Static review (Phases 3–4) can miss things: obfuscation, compiled dependencies you couldn't read, behavior that only triggers at runtime. This phase is your safety net — **observe the software in isolation before trusting it on your real machine.** *Assume breach; contain the blast radius.*
 
+> 🔧 **Start with [`../../scripts/phase5-kit/00-calibrate.sh`](../../scripts/phase5-kit/00-calibrate.sh),
+> before you install anything.** Measured in the worked example, **15 of the 24
+> minutes** of Phase 5 preparation went on repairing instruments rather than
+> auditing — a log that refused to read, a live capture that silently dropped
+> every message, a plugin tool that structurally could not see the extension.
+> Every one of those failures produced **silence**, and silence reads as clean.
+> The calibrator proves each instrument can see a known positive first. The rest
+> of the kit (`01-setup.sh` → `02-capture.sh` → `03-check-canary.sh`) plants
+> decoys, snapshots the system, and searches the results.
+
 ---
 
 ## 5.1 Choose an isolation level (least privilege for first run)

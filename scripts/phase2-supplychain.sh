@@ -203,9 +203,9 @@ if [[ -f "$SRC/.gitmodules" && "$gl_n" -eq 0 && -n "$HEAD_SHA" ]]; then
   INCONCLUSIVE=1
 fi
 
+: > "$WORK/pins.txt"
 if [[ "$gl_n" -gt 0 ]]; then
   echo
-  : > "$WORK/pins.txt"
   while IFS="$(printf '\t')" read -r sha p; do
     [[ -n "$p" ]] || continue
     url=$(git config -f "$SRC/.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null \
@@ -243,7 +243,50 @@ if [[ "$gl_n" -gt 0 ]]; then
   fi
 fi
 
-# --- Submodule pin resolvability (network, opt-in) -------------------------
+# --- SwiftPM pins ----------------------------------------------------------
+# Parsed HERE, ahead of the probe and the advisory queries, because a SwiftPM
+# pin carries an immutable revision exactly as a submodule gitlink does and so
+# belongs in the same two questions: can it still be retrieved, and does it
+# carry a published advisory. Parsing it later left those unasked.
+echo
+echo "--- SwiftPM pins (Package.resolved) ---------------------------------"
+resolved=$(find "$SRC" -name 'Package.resolved' -not -path '*/.git/*' 2>/dev/null | LC_ALL=C sort)
+if [[ -z "$resolved" ]]; then
+  echo "$INFO No Package.resolved found. Absent is normal for projects that use"
+  echo "  no SwiftPM dependencies; it is a finding only if the project declares"
+  echo "  them in Package.swift without committing a lockfile."
+else
+  # Heredoc rather than a pipeline: a pipeline runs the loop in a subshell and
+  # an INCONCLUSIVE set inside it would be discarded.
+  while read -r rf; do
+    [[ -n "$rf" ]] || continue
+    echo "  ${rf#"$SRC"/}"
+    if ! jq -e . "$rf" >/dev/null 2>&1; then
+      echo "    $STOP not valid JSON — not read"
+      INCONCLUSIVE=1
+      continue
+    fi
+    jq -r '
+      ((.pins // .object.pins) // []) as $p
+      | if ($p | length) == 0 then "    (no pins recorded)"
+        else ( $p[]
+               | "    \(.identity // .package // "?")  \(.state.version // .state.branch // "NO VERSION")  \(.state.revision // "NO REVISION")" )
+        end' "$rf" 2>/dev/null
+    jq -r '((.pins // .object.pins) // [])[]
+           | select((.state.revision // "") != "")
+           | "\(.identity // .package // "?")\t\(.state.revision)\t\(.location // .repositoryURL // "")"' \
+      "$rf" 2>/dev/null >> "$WORK/pins.txt"
+    unpinned=$(jq -r '((.pins // .object.pins) // []) | map(select((.state.revision // "") == "")) | length' "$rf" 2>/dev/null)
+    if [[ "${unpinned:-0}" -gt 0 ]]; then
+      echo "    $WARN $unpinned dependency/ies carry no immutable revision. A version"
+      echo "      range can resolve to different code than the one reviewed."
+    fi
+  done <<EOF
+$resolved
+EOF
+fi
+
+# --- Pin resolvability (network, opt-in) -----------------------------------
 # Only https, checked here rather than left to git. A .gitmodules URL is
 # attacker-controlled input, and git's ext:: transport executes a command --
 # handing one to git unchecked would cross the line this whole framework draws.
@@ -277,12 +320,12 @@ probe_commit() {
 
 if [[ "$PROBE_PINS" -eq 1 ]]; then
   echo
-  echo "--- Submodule pin resolvability (network) ---------------------------"
+  echo "--- Pin resolvability (network) --------------------------------------"
   if [[ ! -s "$WORK/pins.txt" ]]; then
-    echo "$INFO No pinned submodules to probe."
+    echo "$INFO No pinned dependencies to probe."
   else
-    echo "  These hosts come from the ARTIFACT's .gitmodules, not from this"
-    echo "  script. Nothing has been contacted yet:"
+    echo "  These hosts come from the ARTIFACT's own dependency files, not from"
+    echo "  this script. Nothing has been contacted yet:"
     awk -F"$(printf '\t')" '{print "      " ($3=="" ? "<no url declared>" : $3)}' "$WORK/pins.txt" \
       | LC_ALL=C sort -u
     echo
@@ -371,36 +414,6 @@ if [[ "$ONLINE" -eq 1 && "$CALIBRATED" -eq 1 && -s "$WORK/pins.txt" ]]; then
       INCONCLUSIVE=1
     fi
   done < "$WORK/pins.txt"
-fi
-
-# --- SwiftPM pins ----------------------------------------------------------
-echo
-echo "--- SwiftPM pins (Package.resolved) ---------------------------------"
-resolved=$(find "$SRC" -name 'Package.resolved' -not -path '*/.git/*' 2>/dev/null | LC_ALL=C sort)
-if [[ -z "$resolved" ]]; then
-  echo "$INFO No Package.resolved found. Absent is normal for projects that use"
-  echo "  no SwiftPM dependencies; it is a finding only if the project declares"
-  echo "  them in Package.swift without committing a lockfile."
-else
-  printf '%s\n' "$resolved" | while read -r rf; do
-    [[ -n "$rf" ]] || continue
-    echo "  ${rf#"$SRC"/}"
-    if ! jq -e . "$rf" >/dev/null 2>&1; then
-      echo "    $STOP not valid JSON — not read"
-      continue
-    fi
-    jq -r '
-      ((.pins // .object.pins) // []) as $p
-      | if ($p | length) == 0 then "    (no pins recorded)"
-        else ( $p[]
-               | "    \(.identity // .package // "?")  \(.state.version // .state.branch // "NO VERSION")  \(.state.revision // "NO REVISION")" )
-        end' "$rf" 2>/dev/null
-    unpinned=$(jq -r '((.pins // .object.pins) // []) | map(select((.state.revision // "") == "")) | length' "$rf" 2>/dev/null)
-    if [[ "${unpinned:-0}" -gt 0 ]]; then
-      echo "    $WARN $unpinned dependency/ies carry no immutable revision. A version"
-      echo "      range can resolve to different code than the one reviewed."
-    fi
-  done
 fi
 
 # --- Build files, from the build system ------------------------------------

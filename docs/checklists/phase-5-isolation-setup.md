@@ -215,6 +215,13 @@ accepted or rejected your probe file.)*
 **A silent instrument produces a false "clean" result.** Prove each one works *before* you
 install anything, or you will not know whether "no traffic" means no traffic or no monitoring.
 
+> 🔧 [`../../scripts/phase5-kit/00-calibrate.sh`](../../scripts/phase5-kit/00-calibrate.sh)
+> runs the checks below and adds the ones a person forgets: that the unified log
+> returns a marker written seconds ago, that a canary is findable in **base64**
+> as well as plaintext, and that a string never written is *not* found. Measured
+> in the worked example, **15 of 24 minutes** of prep went on instrument repair.
+> Run it from the test account before anything else.
+
 - [ ] **Confirm the audit profile is the *active* profile**, not merely created.
 - [ ] **Firewall** — from the test account: `curl -I https://example.com`
       → expect an alert. **No alert means the firewall will not help you**; proceed on the

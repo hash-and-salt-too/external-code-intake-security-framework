@@ -65,6 +65,27 @@ OUTV=$( . "$COMMON"
         printf '%s|%s|%s|%s|%s|%s' "$KIT_ROOT" "$KIT_PORT" "$KIT_SUBJECT" "$KIT_MATCH" "$KIT_EXT" "$KIT_POSITIONAL" )
 is "every shared option is parsed" "/x/y|9100|Thing 2.0|thing|txt|label" "$OUTV"
 
+# --- Bring-your-own probes: the kit must not be tied to Markdown -----------
+mkdir -p "$WORK/pack"
+printf 'probe hitting @@PORT@@ and climbing @@UP@@etc/hosts\n' > "$WORK/pack/01-custom.txt"
+PACKOK=$( . "$COMMON"; KIT_PROBE_PACK="$WORK/pack"; kit_validate_common >/dev/null 2>&1; echo $? )
+is "a probe pack directory is accepted" "0" "$PACKOK"
+PACKBAD=$( . "$COMMON"; KIT_PROBE_PACK="$WORK/not-a-dir"; kit_validate_common >/dev/null 2>&1; echo $? )
+is "a probe pack that is not a directory is rejected" "2" "$PACKBAD"
+
+# An EMPTY pack writes no probes, exercises nothing, and would otherwise end in
+# a report indistinguishable from an artifact that behaved perfectly.
+mkdir -p "$WORK/emptypack"
+OUT_EP=$(HOME="$FAKEHOME" "$KIT_DIR/01-setup.sh" --kit-root "$WORK/kit2" \
+         --probe-pack "$WORK/emptypack" 2>&1)
+if id -Gn "$(id -un)" | tr ' ' '\n' | grep -qx admin; then
+  ok "empty-pack refusal not reachable from an admin account (gate fires first)"
+else
+  has "an empty probe pack is refused" "$OUT_EP" 'contains no files'
+  has "and says why a no-probe run is dangerous" "$OUT_EP" 'tests nothing and would still look clean'
+fi
+has "--probe-pack is documented" "$( . "$COMMON"; kit_common_options )" '--probe-pack'
+
 ( . "$COMMON"; kit_parse_common --nonsense >/dev/null 2>&1 )
 is "an unknown flag is rejected" "2" "$?"
 

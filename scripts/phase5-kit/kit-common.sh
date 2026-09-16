@@ -27,6 +27,10 @@ KIT_GROUP="${ECISF_GROUP_CONTAINER:-}"
 # Extension the probe files are given, so the OS routes them to the previewer
 # or parser under test.
 KIT_EXT="${ECISF_PROBE_EXT:-md}"
+# A directory of your own probe files. Empty means the built-in pack, which is
+# written for a Markdown previewer. Probes are inherently specific to the kind
+# of artifact under test, so bring your own rather than bending these.
+KIT_PROBE_PACK="${ECISF_PROBE_PACK:-}"
 KIT_POSITIONAL=""
 KIT_HELP=0
 
@@ -52,6 +56,10 @@ Shared options (all scripts in this kit accept these):
   --match <substring>    How to find the artifact in extension listings.
   --group-container <id> Application group container to inspect, if any.
   --probe-ext <ext>      Extension given to probe files. Default md.
+  --probe-pack <dir>     Use your own probe files instead of the built-in
+                         Markdown pack. Each file is copied with @@PORT@@ and
+                         @@UP@@ substituted, so a probe never has to hardcode
+                         the listener port or its own depth on disk.
   -h, --help             Show usage.
 EOF
 }
@@ -71,6 +79,7 @@ kit_parse_common() {
             --match)           shift; KIT_MATCH="${1:-}" ;;
             --group-container) shift; KIT_GROUP="${1:-}" ;;
             --probe-ext)       shift; KIT_EXT="${1:-}" ;;
+            --probe-pack)      shift; KIT_PROBE_PACK="${1:-}" ;;
             -*) echo "Unrecognised argument: $1" >&2; return 2 ;;
             *)  [ -z "$KIT_POSITIONAL" ] && KIT_POSITIONAL="$1" ;;
         esac
@@ -93,6 +102,9 @@ kit_validate_common() {
         /*) ;;
         *) KIT_ROOT="$(pwd)/$KIT_ROOT" ;;
     esac
+    if [ -n "$KIT_PROBE_PACK" ] && [ ! -d "$KIT_PROBE_PACK" ]; then
+        echo "--probe-pack is not a directory: $KIT_PROBE_PACK" >&2; return 2
+    fi
     return 0
 }
 

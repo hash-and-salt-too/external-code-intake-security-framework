@@ -131,7 +131,15 @@ DECIDE  Two decisions: the ARTIFACT (accept/reject) and the TASK (what you do
 - [`templates/audit-report-template.md`](templates/audit-report-template.md) — fill this in to record your decision.
 
 **Helper scripts** (all read-only — they gather evidence, they never build or run reviewed code):
-- [`../scripts/README.md`](../scripts/README.md) — `check-build-feasibility.sh` (can your toolchain even build this?) and `verify-known-artifact.sh` (has an already-audited artifact drifted since you approved it?).
+- [`../scripts/README.md`](../scripts/README.md) — the read-only helpers, one per phase where the work is mechanical:
+  `intake-triage.sh` (do I even need this, and what will it cost?) ·
+  `check-build-feasibility.sh` (can your toolchain even build this?) ·
+  `phase1-provenance.sh` (is the project real, and what commit does that tag *actually* point at?) ·
+  `phase2-supplychain.sh` (what does it pull in, and what runs at build time?) ·
+  `phase3-defaults-vs-docs.sh` (does the code ship what the docs promise?) ·
+  `phase4-artifact.sh` (signature, notarization, entitlements in one pass) ·
+  `phase5-kit/` (calibrate your instruments, then plant decoys and watch) ·
+  `verify-known-artifact.sh` (has an already-audited artifact drifted since you approved it?).
 - [`../tools/README.md`](../tools/README.md) — repo maintenance utilities that touch only this repo's own files.
 
 **Worked examples & records:**

@@ -124,6 +124,29 @@ ls -la "$HOME/Library/Group Containers/" > "$BASE/groupcontainers.txt" 2>&1
 echo "[ok] Baseline snapshot captured in $BASE"
 
 # --- Probe files -------------------------------------------------------------
+# Probes are specific to the kind of artifact under test. The built-in set below
+# is written for a MARKDOWN previewer; --probe-pack supplies your own instead.
+if [ -n "$KIT_PROBE_PACK" ]; then
+    packed=0
+    for src in "$KIT_PROBE_PACK"/*; do
+        [ -f "$src" ] || continue
+        sed -e "s|@@PORT@@|$KIT_PORT|g" -e "s|@@UP@@|$UP|g" \
+            "$src" > "$PROBE/$(basename "$src")"
+        packed=$((packed + 1))
+    done
+    # An empty pack would write no probes, exercise nothing, and end in a report
+    # indistinguishable from a run where the artifact behaved perfectly.
+    if [ "$packed" -eq 0 ]; then
+        echo
+        echo "REFUSING TO RUN."
+        echo "--probe-pack contains no files: $KIT_PROBE_PACK"
+        echo "A run with no probes tests nothing and would still look clean."
+        exit 1
+    fi
+    echo "[ok] $packed probe file(s) taken from the pack; @@PORT@@ and @@UP@@ substituted."
+fi
+
+if [ -z "$KIT_PROBE_PACK" ]; then
 
 cat > "$PROBE/00-control.$KIT_EXT" <<'EOF'
 # Control file
@@ -269,6 +292,8 @@ with open(sys.argv[1], "w") as f:
     for i in range(40000):
         f.write("Paragraph %d with some filler text to make this file large.\n\n" % i)
 PYEOF
+
+fi
 
 echo "[ok] Probe files written to $PROBE"
 echo

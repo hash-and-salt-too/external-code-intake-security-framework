@@ -6,6 +6,15 @@ When you trust one project, you inherit trust in **everything it pulls in** and 
 
 > Two harm windows live in this phase: **(a)** dependencies you'll run later, and **(b)** build/install scripts that run *right now*, before you ever "use" the software.
 
+> 🔧 **A helper now gathers the deterministic half of this phase:**
+> [`../../scripts/phase2-supplychain.sh`](../../scripts/phase2-supplychain.sh). Offline by
+> default, it inventories pins, enumerates build files **from the build system
+> rather than from filenames** — a filename search once missed two Makefiles
+> entirely — and sweeps for build-time red flags. Two network questions sit
+> behind explicit opt-in flags: whether each pinned commit can still be
+> *retrieved*, and whether it carries a published advisory. **Read this page
+> anyway**; the script produces evidence and every judgement stays yours.
+
 ---
 
 ## 2.1 Find out what it depends on

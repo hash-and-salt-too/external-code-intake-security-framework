@@ -10,6 +10,16 @@ You don't have to understand every line. You are **hunting for a small set of hi
 > If you cannot establish that the binary matches the reviewed source, record
 > that gap explicitly and do not treat source findings as proof about the binary.
 
+> 🔧 **One part of this phase is now scripted:**
+> [`../../scripts/phase3-defaults-vs-docs.sh`](../../scripts/phase3-defaults-vs-docs.sh)
+> puts every security-relevant default declared in the source next to every "by
+> default" claim made in the documentation. It found a real divergence in the
+> worked example, where a README promised that HTML tags were stripped while the
+> code shipped the opposite. It **pairs them and stops there** — deciding whether
+> a claim and a default disagree is reading comprehension, not pattern matching.
+> The rest of this phase is deliberately **not** automated: the category sweeps
+> below found nothing in the real audit and carry a known false-positive problem.
+
 ---
 
 ## 3.1 Get the exact code locally

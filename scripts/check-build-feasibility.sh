@@ -10,12 +10,20 @@ OK="✅"; WARN="⚠️"; STOP="🛑"; INFO="•"
 usage() {
   cat <<'EOF'
 Usage: scripts/check-build-feasibility.sh [source-folder] [--build-file relative-path]
+       scripts/check-build-feasibility.sh --help
 
 Checks one Swift/Xcode build file without executing reviewed code. If the source
 contains multiple Package.swift or project.pbxproj files, rerun with --build-file
 and one of the relative paths reported by the script.
 EOF
 }
+
+# Before the positional parse, or the first argument is read as a folder name
+# and --help reports "Folder not found: --help".
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
 
 SRC="quarantine"
 SELECTED_BUILD_FILE=""
